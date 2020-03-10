@@ -1,5 +1,6 @@
 """Code for Matrix Product State initialization, manipulation, and operations."""
 
+from copy import deepcopy
 from typing import List
 
 import numpy as np
@@ -12,30 +13,47 @@ one_state = np.array([0., 1.], dtype=np.complex64)
 plus_state = 1. / np.sqrt(2) * (zero_state + one_state)
 
 
-# Common single qubit gates as tn.Node objects
+# Common single qubit gates as np.ndarray objects
 _hmatrix = 1 / np.sqrt(2) * np.array([[1., 1.], [1., -1.]], dtype=np.complex64)
-hgate = tn.Node(_hmatrix, name="hgate")
-
 _imatrix = np.array([[1., 0.], [0., 1.]], dtype=np.complex64)
-igate = tn.Node(_imatrix, name="igate")
-
 _xmatrix = np.array([[0., 1.], [1., 0.]], dtype=np.complex64)
-xgate = tn.Node(_xmatrix, name="xgate")
-
 _ymatrix = np.array([[0., -1j], [1j, 0.]], dtype=np.complex64)
-ygate = tn.Node(_ymatrix, name="ygate")
-
 _zmatrix = np.array([[1., 0.], [0., -1.]], dtype=np.complex64)
-zgate = tn.Node(_zmatrix, name="zgate")
 
 
-# Common two qubit gates as tn.Node objects
+# Common single qubit gates as tn.Node objects
+# Note that functions are used because TensorNetwork connect/contract functions modify Node objects
+def igate():
+    return tn.Node(deepcopy(_imatrix), name="igate")
+
+
+def xgate():
+    return tn.Node(deepcopy(_xmatrix), name="xgate")
+
+
+def ygate():
+    return tn.Node(deepcopy(_ymatrix), name="ygate")
+
+
+def zgate():
+    return tn.Node(deepcopy(_zmatrix), name="zmat")
+
+
+def hgate():
+    return tn.Node(deepcopy(_hmatrix), name="hgate")
+
+
+# Common two qubit gates as np.ndarray objects
 _cnot_matrix = np.array([[1., 0., 0., 0.],
                          [0., 1., 0., 0.],
                          [0., 0., 0., 1.],
                          [0., 0., 1., 0.]])
 _cnot_matrix = np.reshape(_cnot_matrix, newshape=(2, 2, 2, 2))
-cnot = tn.Node(_cnot_matrix, name="cnot")
+
+
+# Common two qubit gates as tn.Node objects
+def cnot():
+    return tn.Node(deepcopy(_cnot_matrix), name="cnot")
 
 
 def get_zero_state_mps(nqubits: int, tensor_prefix: str = "q") -> List[tn.Node]:
@@ -122,7 +140,7 @@ def apply_one_qubit_gate(gate: tn.Node, index: int, mpslist: List[tn.Node]) -> N
     connected = tn.connect(mps_edge, gate_edge)
 
     # Contract the edge to get the new tensor
-    new = tn.contract(connected)
+    new = tn.contract(connected, name=mpslist[index].name)
     mpslist[index] = new
 
 
@@ -138,13 +156,13 @@ def apply_one_qubit_gate_to_all(gate: tn.Node, mpslist: List[tn.Node]):
 
 
 def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[tn.Node]) -> None:
-    """Modifies the input mpslist in place by applying a single qubit gate to a specified node.
+    """Modifies the input mpslist in place by applying a two qubit gate to the specified nodes.
 
     Args:
-        gate: Single qubit gate to apply.
+        gate: Two qubit gate to apply.
         indexA: Index of first tensor (qubit) in the mpslist to apply the single qubit gate to.
         indexB: Index of second tensor (qubit) in the mpslist to apply the single qubit gate to.
-        mpslist: List of tn.Node's representing a valid MPS.
+        mpslist: List of tn.Node objects representing a valid MPS.
     """
     # TODO: Check that mpslist defines a valid mps.
 
@@ -159,12 +177,17 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
     mpsB_edge = list(mpslist[indexB].get_all_dangling())[0]
     gateA_edge = gate[0]
     gateB_edge = gate[1]
-    connectedA = tn.connect(mpsA_edge, gateA_edge)
-    connectedB = tn.connect(mpsB_edge, gateB_edge)
 
     # Contract the edges to get the new tensors
-    newA = tn.contract(connectedA)
-    newB = tn.contract(connectedB)
+    newMPS = tn.contract_between(mpslist[indexA], mpslist[indexB])
+    node_gate_edge = tn.flatten_edges_between(newMPS, gate)
+    newMPS = tn.contract(node_gate_edge)
 
-    mpslist[indexA] = newA
-    mpslist[indexB] = newB
+    # Do the SVD
+    a, b, _ = tn.split_node(newMPS, left_edges=[newMPS[0]], right_edges=[newMPS[1]])
+
+    a.name = mpslist[indexA].name
+    b.name = mpslist[indexB].name
+
+    mpslist[indexA] = a
+    mpslist[indexB] = b
