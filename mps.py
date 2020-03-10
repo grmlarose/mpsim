@@ -172,22 +172,24 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
     if len(gate.get_all_dangling()) != 4 or len(gate.get_all_nondangling()) != 0:
         raise ValueError("Two qubit gate must have four free edges and zero connected edges.")
 
-    # Connect the MPS and gate edges
-    mpsA_edge = list(mpslist[indexA].get_all_dangling())[0]
-    mpsB_edge = list(mpslist[indexB].get_all_dangling())[0]
-    gateA_edge = gate[0]
-    gateB_edge = gate[1]
+    # Connect the MPS tensors to the gate edges
+    _ = tn.connect(mpslist[indexA].get_edge(1), gate.get_edge(0))  # TODO: Which gate edge should be used here?
+    _ = tn.connect(mpslist[indexB].get_edge(0), gate.get_edge(1))  # TODO: Which gate edge should be used here?
 
-    # Contract the edges to get the new tensors
+    # Contract the tensors in the MPS
     newMPS = tn.contract_between(mpslist[indexA], mpslist[indexB])
+
+    # Flatten the two edges from the MPS node to the gate node
     node_gate_edge = tn.flatten_edges_between(newMPS, gate)
+
+    # Contract the flattened edge to get a new single MPS node
     newMPS = tn.contract(node_gate_edge)
 
-    # Do the SVD
+    # Do the SVD to split the single MPS node into two
     a, b, _ = tn.split_node(newMPS, left_edges=[newMPS[0]], right_edges=[newMPS[1]])
 
+    # Put the new tensors after applying the gate back into the MPS list
     a.name = mpslist[indexA].name
     b.name = mpslist[indexB].name
-
     mpslist[indexA] = a
     mpslist[indexB] = b

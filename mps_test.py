@@ -43,10 +43,10 @@ def test_correctness_of_initial_product_state():
 
 
 @pytest.mark.parametrize(["gate", "expected"],
-                         [(mps.xgate, mps.one_state),
-                          (mps.hgate, mps.plus_state),
-                          (mps.zgate, mps.zero_state),
-                          (mps.igate, mps.zero_state)])
+                         [(mps.xgate(), mps.one_state),
+                          (mps.hgate(), mps.plus_state),
+                          (mps.zgate(), mps.zero_state),
+                          (mps.igate(), mps.zero_state)])
 def test_apply_oneq_gate_xgate(gate, expected):
     """Tests application of a single qubit gate to several MPS."""
     for n in range(2, 8):
@@ -60,7 +60,17 @@ def test_apply_oneq_gate_xgate(gate, expected):
 def test_apply_oneq_gate_to_all():
     """Tests correctness for final wavefunction after applying a NOT gate to all qubits in a two-qubit MPS."""
     mpslist = mps.get_zero_state_mps(nqubits=2)
-    mps.apply_one_qubit_gate_to_all(mps.xgate, mpslist)
+    mps.apply_one_qubit_gate_to_all(mps.xgate(), mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 0., 0., 1.], dtype=np.complex64)
+    assert np.array_equal(wavefunction, correct)
+
+
+def test_apply_twoq_cnot_two_qubits():
+    """Tests for correctness of final wavefunction after applying a CNOT to a two-qubit MPS."""
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, mpslist)
     wavefunction = mps.get_wavefunction_of_mps(mpslist)
     correct = np.array([0., 0., 0., 1.], dtype=np.complex64)
     assert np.array_equal(wavefunction, correct)
