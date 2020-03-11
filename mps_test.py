@@ -134,3 +134,13 @@ def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
     wavefunction = mps.get_wavefunction_of_mps(mpslist)
     correct = np.array([0., 1., 0., 0.], dtype=np.complex64)
     assert np.array_equal(wavefunction, correct)
+
+
+def test_apply_twoq_identical_indices_raises_error():
+    """Tests that a two-qubit gate application with identical indices raises an error."""
+    mps2q = mps.get_zero_state_mps(nqubits=2)
+    mps3q = mps.get_zero_state_mps(nqubits=3)
+    mps9q = mps.get_zero_state_mps(nqubits=9)
+    with pytest.raises(ValueError):
+        for mpslist in (mps2q, mps3q, mps9q):
+            mps.apply_two_qubit_gate(mps.cnot(), 0, 0, mpslist)
