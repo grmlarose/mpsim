@@ -24,6 +24,20 @@ def test_get_wavefunction_simple():
     assert np.array_equal(wavefunction, correct)
 
 
+def test_get_wavefunction_deosnt_modify_mps():
+    """Tests that getting the wavefunction of an MPS doesn't affect the actual MPS."""
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    nodes_list, _ = tn.copy(mpslist)
+    _ = mps.get_wavefunction_of_mps(mpslist)
+    a, b = mpslist
+    assert len(a.edges) == 2
+    assert len(a.get_all_nondangling()) == 1
+    assert len(a.get_all_dangling()) == 1
+    assert len(b.edges) == 2
+    assert len(b.get_all_nondangling()) == 1
+    assert len(b.get_all_dangling()) == 1
+
+
 def test_correctness_of_initial_product_state_two_qubits():
     """Tests that the contracted MPS is indeed the all zero state for two qubits."""
     lq, _ = mps.get_zero_state_mps(nqubits=2)
@@ -307,3 +321,8 @@ def test_twoq_gates_in_succession():
     wavefunction = mps.get_wavefunction_of_mps(mpslist)
     correct = np.array([0., 1., 0., 0.])
     assert np.array_equal(wavefunction, correct)
+
+
+def test_prepare_ghz_state():
+    """Tests preparation of the GHZ state on four qubits."""
+    pass

@@ -106,25 +106,28 @@ def get_zero_state_mps(nqubits: int, tensor_prefix: str = "q") -> List[tn.Node]:
     return nodes
 
 
-def get_wavefunction_of_mps(mps: List[tn.Node]) -> np.array:
+def get_wavefunction_of_mps(mpslist: List[tn.Node]) -> np.array:
     """Returns the wavefunction of a valid MPS as a (potentially giant) vector by contracting all virtual indices.
 
     NOTE: Calling this function "destroys" the MPS because apparently it's not possible to copy a list of
     tensors in TensorNetwork...
 
     Args:
-        mps: List of tn.Node objects defining a valid MPS.
+        mpslist: List of tn.Node objects defining a valid MPS.
     """
-    n = len(mps)
-    fin = mps.pop(0)
-    for node in mps:
+    # Replicate the mps
+    mpslist, _ = tn.copy(mpslist)
+    mpslist = list(mpslist.values())
+    n = len(mpslist)
+    fin = mpslist.pop(0)
+    for node in mpslist:
         fin = tn.contract_between(fin, node)
 
     # Make sure all edges are free
     if set(fin.get_all_dangling()) != set(fin.get_all_edges()):
         raise ValueError("Invalid MPS.")
 
-    return np.reshape(fin.tensor, newshape=(2 ** n))
+    return np.reshape(fin.tensor, newshape=(2**n))
 
 
 def apply_one_qubit_gate(gate: tn.Node, index: int, mpslist: List[tn.Node]) -> None:
@@ -169,6 +172,11 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
 
     Args:
         gate: Two qubit gate to apply.
+              Edge convention:
+                gate edge 0: Connects to tensor at indexA.
+                gate edge 1: Connects to tensor at indexB.
+                gate edge 2: Becomes free index of new tensor at indexA after contracting.
+                gate edge 3: Becomes free index of new tensor at indexB after contracting.
         indexA: Index of first tensor (qubit) in the mpslist to apply the single qubit gate to.
         indexB: Index of second tensor (qubit) in the mpslist to apply the single qubit gate to.
         mpslist: List of tn.Node objects representing a valid MPS.
