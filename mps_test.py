@@ -1,7 +1,5 @@
 """Unit tests for inital MPS states."""
 
-from itertools import combinations
-
 import pytest
 
 import numpy as np
@@ -146,6 +144,15 @@ def test_apply_twoq_identical_indices_raises_error():
     with pytest.raises(ValueError):
         for mpslist in (mps2q, mps3q, mps9q):
             mps.apply_two_qubit_gate(mps.cnot(), 0, 0, mpslist)
+
+
+def test_apply_twoq_non_adjacent_indices_raises_error():
+    """Tests that a two-qubit gate application with non-adjacent indices raises an error."""
+    n = 10
+    mpslist = mps.get_zero_state_mps(nqubits=n)
+    for (a, b) in [(0, 2), (0, 9), (4, 6), (2, 7)]:
+        with pytest.raises(ValueError):
+            mps.apply_two_qubit_gate(mps.cnot(), a, b, mpslist)
 
 
 def test_apply_twoq_cnot_four_qubits_interior_qubits():
