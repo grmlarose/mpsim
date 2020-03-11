@@ -99,3 +99,38 @@ def test_apply_twoq_cnot_two_qubits():
     wavefunction = mps.get_wavefunction_of_mps(mpslist)
     correct = np.array([0., 0., 1., 0.], dtype=np.complex64)
     assert np.array_equal(wavefunction, correct)
+
+
+def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
+    """Tests for correctness of final wavefunction after applying a CNOT to a two-qubit MPS."""
+    # In the following tests, the first qubit is always the target qubit.
+    # Check that CNOT|10> = |10>
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)
+    mps.apply_two_qubit_gate(mps.cnot(), 1, 0, mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 0., 1., 0.], dtype=np.complex64)
+    assert np.array_equal(wavefunction, correct)
+
+    # Check that CNOT|00> = |00>
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    mps.apply_two_qubit_gate(mps.cnot(), 1, 0, mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([1., 0., 0., 0.], dtype=np.complex64)
+    assert np.array_equal(wavefunction, correct)
+
+    # Check that CNOT|01> = |11>
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    mps.apply_one_qubit_gate(mps.xgate(), 1, mpslist)
+    mps.apply_two_qubit_gate(mps.cnot(), 1, 0, mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 0., 0., 1.], dtype=np.complex64)
+    assert np.array_equal(wavefunction, correct)
+
+    # Check that CNOT|11> = |01>
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    mps.apply_one_qubit_gate_to_all(mps.xgate(), mpslist)
+    mps.apply_two_qubit_gate(mps.cnot(), 1, 0, mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 1., 0., 0.], dtype=np.complex64)
+    assert np.array_equal(wavefunction, correct)
