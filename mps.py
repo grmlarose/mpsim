@@ -172,6 +172,9 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
     if indexA == indexB:
         raise ValueError("Input indices are identical.")
 
+    if abs(indexA - indexB) != 1:
+        raise ValueError("Indices must be for adjacent tensors (must differ by one).")
+
     if len(gate.get_all_dangling()) != 4 or len(gate.get_all_nondangling()) != 0:
         raise ValueError("Two qubit gate must have four free edges and zero connected edges.")
 

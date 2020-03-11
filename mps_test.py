@@ -1,5 +1,7 @@
 """Unit tests for inital MPS states."""
 
+from itertools import combinations
+
 import pytest
 
 import numpy as np
@@ -178,3 +180,28 @@ def test_apply_twoq_cnot_four_qubits_edge_qubits():
     print(wavefunction)
     correct = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0.])
     assert np.array_equal(wavefunction, correct)
+
+
+def test_apply_twoq_cnot_five_qubits_all_combinations():
+    """Tests applying a CNOT to a five qubit MPS with all combinations of indices.
+
+    That is, CNOT_01, CNOT_02, CNOT_03, ..., CNOT_24, CNOT_34 where the first number is
+    the control qubit and the second is the target qubit.
+    """
+    n = 5
+    indices = [(a, a + 1) for a in range(n - 1)]
+    print(indices)
+
+    for (a, b) in indices:
+        # Apply the gates
+        mpslist = mps.get_zero_state_mps(nqubits=n)
+        mps.apply_one_qubit_gate(mps.xgate(), a, mpslist)
+        mps.apply_two_qubit_gate(mps.cnot(), a, b, mpslist)
+        wavefunction = mps.get_wavefunction_of_mps(mpslist)
+        # Get the correct wavefunction
+        correct = np.zeros((2**n,))
+        bits = ["0"] * n
+        bits[a] = "1"
+        bits[b] = "1"
+        correct[int("".join(bits), 2)] = 1.
+        assert np.array_equal(wavefunction, correct)
