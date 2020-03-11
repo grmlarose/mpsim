@@ -173,8 +173,12 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
         raise ValueError("Two qubit gate must have four free edges and zero connected edges.")
 
     # Connect the MPS tensors to the gate edges
-    _ = tn.connect(mpslist[indexA].get_edge(1), gate.get_edge(0))  # TODO: Which gate edge should be used here?
-    _ = tn.connect(mpslist[indexB].get_edge(0), gate.get_edge(1))  # TODO: Which gate edge should be used here?
+    _ = tn.connect(
+        list(mpslist[indexA].get_all_dangling())[0], gate.get_edge(0)
+    )  # TODO: Which gate edge should be used here?
+    _ = tn.connect(
+        list(mpslist[indexB].get_all_dangling())[0], gate.get_edge(1)
+    )  # TODO: Which gate edge should be used here?
 
     # Contract the tensors in the MPS
     newMPS = tn.contract_between(mpslist[indexA], mpslist[indexB])
