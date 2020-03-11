@@ -212,3 +212,13 @@ def test_apply_twoq_cnot_five_qubits_all_combinations():
         bits[b] = "1"
         correct[int("".join(bits), 2)] = 1.
         assert np.array_equal(wavefunction, correct)
+
+
+def test_apply_twoq_swap_two_qubits():
+    """Tests swapping two qubits in a two-qubit MPS."""
+    mpslist = mps.get_zero_state_mps(nqubits=2)             # State: |00>
+    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)       # State: |10>
+    mps.apply_two_qubit_gate(mps.swap(), 0, 1, mpslist)     # State: |01>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 1., 0., 0.])
+    assert np.array_equal(wavefunction, correct)

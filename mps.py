@@ -49,11 +49,20 @@ _cnot_matrix = np.array([[1., 0., 0., 0.],
                          [0., 0., 0., 1.],
                          [0., 0., 1., 0.]])
 _cnot_matrix = np.reshape(_cnot_matrix, newshape=(2, 2, 2, 2))
+_swap_matrix = np.array([[1., 0., 0., 0.],
+                         [0., 0., 1., 0.],
+                         [0., 1., 0., 0.],
+                         [0., 0., 0., 1.]])
+_swap_matrix = np.reshape(_swap_matrix, newshape=(2, 2, 2, 2))
 
 
 # Common two qubit gates as tn.Node objects
 def cnot():
     return tn.Node(deepcopy(_cnot_matrix), name="cnot")
+
+
+def swap():
+    return tn.Node(deepcopy(_swap_matrix), name="swap")
 
 
 def get_zero_state_mps(nqubits: int, tensor_prefix: str = "q") -> List[tn.Node]:
