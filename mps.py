@@ -183,17 +183,47 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
         list(mpslist[indexB].get_all_dangling())[0], gate.get_edge(1)
     )  # TODO: Which gate edge should be used here?
 
+    # Store the free edges of the gate
+    # Note: You can't access these later because TensorNetwork...
+    left_gate_edge = gate.get_edge(2)
+    right_gate_edge = gate.get_edge(3)
+
     # Contract the tensors in the MPS
-    newMPS = tn.contract_between(mpslist[indexA], mpslist[indexB])
+    new_node = tn.contract_between(mpslist[indexA], mpslist[indexB], name="new_mps_tensor")
 
     # Flatten the two edges from the MPS node to the gate node
-    node_gate_edge = tn.flatten_edges_between(newMPS, gate)
+    node_gate_edge = tn.flatten_edges_between(new_node, gate)
 
     # Contract the flattened edge to get a new single MPS node
-    newMPS = tn.contract(node_gate_edge)
+    new_node = tn.contract(node_gate_edge, name="new_mps_tensor")
+
+    # Get the left and right connected edges (if any)
+    if indexA < indexB:
+        left_index = indexA
+    else:
+        left_index = indexB
+    left_connected_edge = None
+    right_connected_edge = None
+    for connected_edge in new_node.get_all_nondangling():
+        index = int(connected_edge.node1.name.split("q")[-1])
+        if index <= left_index:
+            left_connected_edge = connected_edge
+        else:
+            right_connected_edge = connected_edge
+
+    # Get the left and right free edges from the original gate
+    # TODO: Which edge is "left" and which is "right?"
+    left_free_edge = left_gate_edge
+    right_free_edge = right_gate_edge
+
+    # Group the left (un)connected and right (un)connected edges
+    left_edges = [edge for edge in (left_free_edge, left_connected_edge) if edge is not None]
+    right_edges = [edge for edge in (right_free_edge, right_connected_edge) if edge is not None]
 
     # Do the SVD to split the single MPS node into two
-    a, b, _ = tn.split_node(newMPS, left_edges=[newMPS[0]], right_edges=[newMPS[1]])
+    # TODO: Do the SVD manually (without using TensorNetwork...) to decide which side S goes on (left or right)
+    #  where S is such that U S V^\dagger is the singular value decomposition of the new MPS node
+    a, b, _ = tn.split_node(new_node, left_edges=left_edges, right_edges=right_edges)
 
     # Put the new tensors after applying the gate back into the MPS list
     a.name = mpslist[indexA].name
