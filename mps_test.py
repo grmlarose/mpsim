@@ -283,3 +283,27 @@ def test_qubit_hopping():
     correct = np.zeros(2**n)
     correct[0] = correct[2**(n - 1)] = 1. / np.sqrt(2)
     assert np.allclose(wavefunction, correct)
+
+
+def test_bell_state():
+    """Tests for wavefunction correctness after preparing a Bell state."""
+    n = 2
+    mpslist = mps.get_zero_state_mps(nqubits=n)
+    mps.apply_one_qubit_gate(mps.hgate(), 0, mpslist)
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 1.])
+    assert np.allclose(wavefunction, correct)
+
+
+def test_twoq_gates_in_succession():
+    """Tests for wavefunction correctness after applying a series of two-qubit gates."""
+    n = 2
+    mpslist = mps.get_zero_state_mps(nqubits=n)
+    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)       # State: |10>
+    mps.apply_two_qubit_gate(mps.cnot(), 1, 0, mpslist)     # State: |10>
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, mpslist)     # State: |11>
+    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)       # State: |01>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 1., 0., 0.])
+    assert np.array_equal(wavefunction, correct)
