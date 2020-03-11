@@ -66,6 +66,16 @@ def test_apply_oneq_gate_to_all():
     assert np.array_equal(wavefunction, correct)
 
 
+def test_apply_oneq_gate_to_all_hadamard():
+    """Tests correctness for final wavefunction after applying a Hadamard gate to all qubits in a five-qubit MPS."""
+    n = 5
+    mpslist = mps.get_zero_state_mps(nqubits=5)
+    mps.apply_one_qubit_gate_to_all(mps.hgate(), mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = 1 / 2**(n / 2) * np.ones(2**n)
+    assert np.allclose(wavefunction, correct)
+
+
 def test_apply_twoq_cnot_two_qubits():
     """Tests for correctness of final wavefunction after applying a CNOT to a two-qubit MPS."""
     # In the following tests, the first qubit is always the control qubit.
@@ -214,11 +224,62 @@ def test_apply_twoq_cnot_five_qubits_all_combinations():
         assert np.array_equal(wavefunction, correct)
 
 
-def test_apply_twoq_swap_two_qubits():
+@pytest.mark.parametrize(["indices"],
+                         [[(0, 1)], [(1, 0)]])
+def test_apply_twoq_swap_two_qubits(indices):
     """Tests swapping two qubits in a two-qubit MPS."""
-    mpslist = mps.get_zero_state_mps(nqubits=2)             # State: |00>
-    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)       # State: |10>
-    mps.apply_two_qubit_gate(mps.swap(), 0, 1, mpslist)     # State: |01>
+    mpslist = mps.get_zero_state_mps(nqubits=2)                 # State: |00>
+    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)           # State: |10>
+    mps.apply_two_qubit_gate(mps.swap(), *indices, mpslist)     # State: |01>
     wavefunction = mps.get_wavefunction_of_mps(mpslist)
     correct = np.array([0., 1., 0., 0.])
     assert np.array_equal(wavefunction, correct)
+
+    mpslist = mps.get_zero_state_mps(nqubits=2)                 # State: |00>
+    mps.apply_two_qubit_gate(mps.swap(), *indices, mpslist)     # State: |00>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([1., 0., 0., 0.])
+    assert np.array_equal(wavefunction, correct)
+
+    mpslist = mps.get_zero_state_mps(nqubits=2)                 # State: |00>
+    mps.apply_one_qubit_gate(mps.xgate(), 1, mpslist)           # State: |01>
+    mps.apply_two_qubit_gate(mps.swap(), *indices, mpslist)     # State: |10>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 0., 1., 0.])
+    assert np.array_equal(wavefunction, correct)
+
+    mpslist = mps.get_zero_state_mps(nqubits=2)                 # State: |00>
+    mps.apply_one_qubit_gate_to_all(mps.xgate(), mpslist)       # State: |11>
+    mps.apply_two_qubit_gate(mps.swap(), *indices, mpslist)     # State: |11>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 0., 0., 1.])
+    assert np.array_equal(wavefunction, correct)
+
+
+def test_apply_swap_five_qubits():
+    """Tests applying a swap gate to an MPS with five qubits."""
+    n = 5
+    for i in range(n - 1):
+        mpslist = mps.get_zero_state_mps(nqubits=n)
+        mps.apply_one_qubit_gate(mps.xgate(), i, mpslist)
+        mps.apply_two_qubit_gate(mps.swap(), i, i + 1, mpslist)
+        wavefunction = mps.get_wavefunction_of_mps(mpslist)
+        # Get the correct wavefunction
+        correct = np.zeros((2 ** n,))
+        bits = ["0"] * n
+        bits[i + 1] = "1"
+        correct[int("".join(bits), 2)] = 1.
+        assert np.array_equal(wavefunction, correct)
+
+
+def test_qubit_hopping():
+    """Tests "hopping" a qubit with a sequence of swap gates."""
+    n = 8
+    mpslist = mps.get_zero_state_mps(nqubits=n)
+    mps.apply_one_qubit_gate(mps.hgate(), 0, mpslist)
+    for i in range(1, n - 1):
+        mps.apply_two_qubit_gate(mps.swap(), i, i + 1, mpslist)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.zeros(2**n)
+    correct[0] = correct[2**(n - 1)] = 1. / np.sqrt(2)
+    assert np.allclose(wavefunction, correct)
