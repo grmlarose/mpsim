@@ -146,12 +146,35 @@ def test_apply_twoq_identical_indices_raises_error():
             mps.apply_two_qubit_gate(mps.cnot(), 0, 0, mpslist)
 
 
-def test_apply_twoq_cnot_four_qubits():
-    """Tests that CNOT|0100> = |0110>."""
+def test_apply_twoq_cnot_four_qubits_interior_qubits():
+    """Tests with a CNOT on four qubits acting on "interior" qubits."""
     mpslist = mps.get_zero_state_mps(nqubits=4)             # State: |0000>
     mps.apply_one_qubit_gate(mps.xgate(), 1, mpslist)       # State: |0100>
     mps.apply_two_qubit_gate(mps.cnot(), 1, 2, mpslist)     # State: Should be |0110>
     wavefunction = mps.get_wavefunction_of_mps(mpslist)
     correct = np.array([0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
-    print(len(correct))
+    assert np.array_equal(wavefunction, correct)
+
+    mpslist = mps.get_zero_state_mps(nqubits=4)             # State: |0000>
+    mps.apply_two_qubit_gate(mps.cnot(), 1, 2, mpslist)     # State: Should be |0000>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+    assert np.array_equal(wavefunction, correct)
+
+
+def test_apply_twoq_cnot_four_qubits_edge_qubits():
+    """Tests with a CNOT on four qubits acting on "edge" qubits."""
+    mpslist = mps.get_zero_state_mps(nqubits=4)             # State: |0000>
+    mps.apply_one_qubit_gate(mps.xgate(), 2, mpslist)       # State: |0010>
+    mps.apply_two_qubit_gate(mps.cnot(), 2, 3, mpslist)     # State: Should be |0011>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+    assert np.array_equal(wavefunction, correct)
+
+    mpslist = mps.get_zero_state_mps(nqubits=4)             # State: |0000>
+    mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)       # State: |1000>
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, mpslist)     # State: Should be |1100>
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    print(wavefunction)
+    correct = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0.])
     assert np.array_equal(wavefunction, correct)

@@ -205,7 +205,12 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
     left_connected_edge = None
     right_connected_edge = None
     for connected_edge in new_node.get_all_nondangling():
-        index = int(connected_edge.node1.name.split("q")[-1])
+        if "q" in connected_edge.node1.name:
+            index = int(connected_edge.node1.name.split("q")[-1])  # Use the "node1" node by default
+        else:
+            index = int(connected_edge.node2.name.split("q")[-1])  # If "node1" is the new_mps_node, use "node2"
+
+        # Get the connected edges (if any)
         if index <= left_index:
             left_connected_edge = connected_edge
         else:
