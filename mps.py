@@ -248,10 +248,37 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
     # Do the SVD to split the single MPS node into two
     # TODO: Do the SVD manually (without using TensorNetwork...) to decide which side S goes on (left or right)
     #  where S is such that U S V^\dagger is the singular value decomposition of the new MPS node
-    a, b, _ = tn.split_node(new_node, left_edges=left_edges, right_edges=right_edges)
+    # a, b, _ = tn.split_node(new_node, left_edges=left_edges, right_edges=right_edges)
+
+    u, s, vdag, _ = tn.split_node_full_svd(new_node, left_edges=left_edges, right_edges=right_edges)
+
+    print("\n\nU tensor:")
+    print(u.tensor)
+    print(u.edges)
+
+    print("\n\nS tensor:")
+    print(s.tensor)
+    print(s.edges)
+
+    print("\n\nVdag tensor")
+    print(vdag.tensor)
+    print(vdag.edges)
+
+    # TODO: Add option to contract U with S and leave Vdag as the new right tensor
+    new_left = u
+    new_left.name = "new_left"
+    new_right = tn.contract_between(s, vdag, name="new_right")
+
+    print("\n\nNew left tensor:")
+    print(new_left.tensor)
+    print(new_left.edges)
+
+    print("\n\nNew right tensor:")
+    print(new_right.tensor)
+    print(new_right.edges)
 
     # Put the new tensors after applying the gate back into the MPS list
-    a.name = mpslist[indexA].name
-    b.name = mpslist[indexB].name
-    mpslist[indexA] = a
-    mpslist[indexB] = b
+    new_left.name = mpslist[indexA].name
+    new_right.name = mpslist[indexB].name
+    mpslist[indexA] = new_left
+    mpslist[indexB] = new_right
