@@ -347,7 +347,7 @@ def test_left_vs_right_canonical_two_qubit_one_gate():
     assert np.array_equal(lwavefunction, cwavefunction)
     assert np.array_equal(rwavefunction, cwavefunction)
 
-
+#
 # def test_qubit_hopping_left_to_right_and_back():
 #     """Tests "hopping" a qubit with a sequence of swap gates."""
 #     n = 3
@@ -356,13 +356,12 @@ def test_left_vs_right_canonical_two_qubit_one_gate():
 #     for i in range(1, n - 1):
 #         mps.apply_two_qubit_gate(mps.swap(), i, i + 1, mpslist, keep_left_canonical=True)
 #     for i in range(n - 1, 1, -1):
-#         print(i)
-#         print(mpslist)
 #         mps.apply_two_qubit_gate(mps.swap(), i, i - 1, mpslist, keep_left_canonical=False)
+#     print(mpslist)
 #     wavefunction = mps.get_wavefunction_of_mps(mpslist)
-#     correct = np.zeros(2**n)
-#     correct[0] = 1
-#     assert np.allclose(wavefunction, correct)
+#     # correct = np.zeros(2**n)
+#     # correct[0] = 1
+#     # assert np.allclose(wavefunction, correct)
 
 
 def test_prepare_ghz_state():

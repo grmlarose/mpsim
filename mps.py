@@ -115,6 +115,9 @@ def get_wavefunction_of_mps(mpslist: List[tn.Node]) -> np.array:
     Args:
         mpslist: List of tn.Node objects defining a valid MPS.
     """
+    if not is_valid(mpslist):
+        raise ValueError("Input mpslist does not define a valid MPS.")
+
     # Replicate the mps
     mpslist, _ = tn.copy(mpslist)
     mpslist = list(mpslist.values())
@@ -141,11 +144,6 @@ def is_valid(mpslist: List[tn.Node]) -> bool:
     if len(mpslist) < 2:
         return False
 
-    try:
-        tn.check_connected(mpslist)
-    except ValueError:
-        return False
-
     for (i, tensor) in enumerate(mpslist):
         # Exterior nodes
         if i == 0 or i == len(mpslist) - 1:
@@ -158,6 +156,13 @@ def is_valid(mpslist: List[tn.Node]) -> bool:
             if len(tensor.get_all_dangling()) != 1:
                 return False
             if len(tensor.get_all_nondangling()) != 2:
+                return False
+
+        if i < len(mpslist) - 1:
+            try:
+                tn.check_connected((mpslist[i], mpslist[i + 1]))
+            except ValueError:
+                print(f"Nodes at index {i} and {i + 1} are not connected.")
                 return False
     return True
 
