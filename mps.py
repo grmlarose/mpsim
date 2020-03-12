@@ -130,6 +130,38 @@ def get_wavefunction_of_mps(mpslist: List[tn.Node]) -> np.array:
     return np.reshape(fin.tensor, newshape=(2**n))
 
 
+def is_valid(mpslist: List[tn.Node]) -> bool:
+    """Returns true if the mpslist defines a valid MPS, else False.
+
+    A valid MPS satisfies the following criteria:
+        (1) At least two tensors.
+        (2) Every tensor has exactly one free (dangling) edge.
+        (3) Every tensor has connected edges to its nearest neighbor(s).
+    """
+    if len(mpslist) < 2:
+        return False
+
+    try:
+        tn.check_connected(mpslist)
+    except ValueError:
+        return False
+
+    for (i, tensor) in enumerate(mpslist):
+        # Exterior nodes
+        if i == 0 or i == len(mpslist) - 1:
+            if len(tensor.get_all_dangling()) != 1:
+                return False
+            if len(tensor.get_all_nondangling()) != 1:
+                return False
+        # Interior nodes
+        else:
+            if len(tensor.get_all_dangling()) != 1:
+                return False
+            if len(tensor.get_all_nondangling()) != 2:
+                return False
+    return True
+
+
 def apply_one_qubit_gate(gate: tn.Node, index: int, mpslist: List[tn.Node]) -> None:
     """Modifies the input mpslist in place by applying a single qubit gate to a specified node.
 
@@ -138,7 +170,8 @@ def apply_one_qubit_gate(gate: tn.Node, index: int, mpslist: List[tn.Node]) -> N
         index: Index of tensor (qubit) in the mpslist to apply the single qubit gate to.
         mpslist: List of tn.Node objects representing a valid MPS.
     """
-    # TODO: Check that mpslist defines a valid mps.
+    if not is_valid(mpslist):
+        raise ValueError("Input mpslist does not define a valid MPS.")
 
     if index not in range(len(mpslist)):
         raise ValueError(f"Input tensor index={index} is out of bounds for the input mpslist.")
@@ -163,6 +196,9 @@ def apply_one_qubit_gate_to_all(gate: tn.Node, mpslist: List[tn.Node]):
         gate: Single qubit gate to apply. A tensor with two free indices.
         mpslist: List of tn.Node objects representing a valid MPS.
     """
+    if not is_valid(mpslist):
+        raise ValueError("Input mpslist does not define a valid MPS.")
+
     for i in range(len(mpslist)):
         apply_one_qubit_gate(gate, i, mpslist)
 
@@ -194,7 +230,8 @@ def apply_two_qubit_gate(
                              If False, S is grouped with U so that the new left tensor is U @ S and
                              the new right tensor is Vdag.
     """
-    # TODO: Check that mpslist defines a valid mps.
+    if not is_valid(mpslist):
+        raise ValueError("Input mpslist does not define a valid MPS.")
 
     if indexA not in range(len(mpslist)) or indexB not in range(len(mpslist)):
         raise ValueError(f"Input tensor indices={(indexA, indexB)} are out of bounds for the input mpslist.")

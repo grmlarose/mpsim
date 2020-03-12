@@ -14,6 +14,13 @@ def test_mps_one_qubit():
         mps.get_zero_state_mps(1)
 
 
+def test_is_valid_for_product_states():
+    """Tests that a product state on different numbers of qubits is a valid MPS."""
+    for n in range(2, 20):
+        mpslist = mps.get_zero_state_mps(nqubits=n)
+        assert mps.is_valid(mpslist)
+
+
 def test_get_wavefunction_simple():
     """Tests getting the wavefunction of a simple MPS."""
     mpslist = mps.get_zero_state_mps(nqubits=3)
@@ -286,7 +293,7 @@ def test_apply_swap_five_qubits():
         assert np.array_equal(wavefunction, correct)
 
 
-def test_qubit_hopping():
+def test_qubit_hopping_left_to_right():
     """Tests "hopping" a qubit with a sequence of swap gates."""
     n = 8
     mpslist = mps.get_zero_state_mps(nqubits=n)
@@ -339,6 +346,23 @@ def test_left_vs_right_canonical_two_qubit_one_gate():
     cwavefunction = np.array([0., 0., 0., 1.])
     assert np.array_equal(lwavefunction, cwavefunction)
     assert np.array_equal(rwavefunction, cwavefunction)
+
+
+# def test_qubit_hopping_left_to_right_and_back():
+#     """Tests "hopping" a qubit with a sequence of swap gates."""
+#     n = 3
+#     mpslist = mps.get_zero_state_mps(nqubits=n)
+#     mps.apply_one_qubit_gate(mps.xgate(), 0, mpslist)
+#     for i in range(1, n - 1):
+#         mps.apply_two_qubit_gate(mps.swap(), i, i + 1, mpslist, keep_left_canonical=True)
+#     for i in range(n - 1, 1, -1):
+#         print(i)
+#         print(mpslist)
+#         mps.apply_two_qubit_gate(mps.swap(), i, i - 1, mpslist, keep_left_canonical=False)
+#     wavefunction = mps.get_wavefunction_of_mps(mpslist)
+#     correct = np.zeros(2**n)
+#     correct[0] = 1
+#     assert np.allclose(wavefunction, correct)
 
 
 def test_prepare_ghz_state():
