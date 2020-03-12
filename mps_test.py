@@ -323,6 +323,24 @@ def test_twoq_gates_in_succession():
     assert np.array_equal(wavefunction, correct)
 
 
+def test_left_vs_right_canonical_two_qubit_one_gate():
+    """Performs a two-qubit gate keeping left-canonical and right-canonical,
+    checks for equality in final wavefunction.
+    """
+    n = 2
+    lmps = mps.get_zero_state_mps(nqubits=n)
+    rmps = mps.get_zero_state_mps(nqubits=n)
+    mps.apply_one_qubit_gate(mps.xgate(), 0, lmps)
+    mps.apply_one_qubit_gate(mps.xgate(), 0, rmps)
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, lmps, keep_left_canonical=True)
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, rmps, keep_left_canonical=False)
+    lwavefunction = mps.get_wavefunction_of_mps(lmps)
+    rwavefunction = mps.get_wavefunction_of_mps(rmps)
+    cwavefunction = np.array([0., 0., 0., 1.])
+    assert np.array_equal(lwavefunction, cwavefunction)
+    assert np.array_equal(rwavefunction, cwavefunction)
+
+
 def test_prepare_ghz_state():
     """Tests preparation of the GHZ state on four qubits."""
     pass
