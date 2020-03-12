@@ -167,7 +167,13 @@ def apply_one_qubit_gate_to_all(gate: tn.Node, mpslist: List[tn.Node]):
         apply_one_qubit_gate(gate, i, mpslist)
 
 
-def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[tn.Node]) -> None:
+def apply_two_qubit_gate(
+        gate: tn.Node,
+        indexA: int,
+        indexB: int,
+        mpslist: List[tn.Node],
+        keep_left_canonical: bool = True,
+) -> None:
     """Modifies the input mpslist in place by applying a two qubit gate to the specified nodes.
 
     Args:
@@ -180,6 +186,13 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
         indexA: Index of first tensor (qubit) in the mpslist to apply the single qubit gate to.
         indexB: Index of second tensor (qubit) in the mpslist to apply the single qubit gate to.
         mpslist: List of tn.Node objects representing a valid MPS.
+        keep_left_canonical: After performing an SVD on the new node to obtain U, S, Vdag,
+                             S is grouped with Vdag to form the new right tensor. That is,
+                             the left tensor is U, and the right tensor is S @ Vdag. This keeps
+                             the MPS in left canonical form if it already was in left canonical form.
+
+                             If False, S is grouped with U so that the new left tensor is U @ S and
+                             the new right tensor is Vdag.
     """
     # TODO: Check that mpslist defines a valid mps.
 
@@ -203,8 +216,7 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
         list(mpslist[indexB].get_all_dangling())[0], gate.get_edge(1)
     )  # TODO: Which gate edge should be used here?
 
-    # Store the free edges of the gate
-    # Note: You can't access these later because TensorNetwork...
+    # Store the free edges of the gate, using the docstring edge convention
     left_gate_edge = gate.get_edge(2)
     right_gate_edge = gate.get_edge(3)
 
@@ -237,7 +249,6 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
             right_connected_edge = connected_edge
 
     # Get the left and right free edges from the original gate
-    # TODO: Which edge is "left" and which is "right?"
     left_free_edge = left_gate_edge
     right_free_edge = right_gate_edge
 
@@ -246,36 +257,15 @@ def apply_two_qubit_gate(gate: tn.Node, indexA: int, indexB: int, mpslist: List[
     right_edges = [edge for edge in (right_free_edge, right_connected_edge) if edge is not None]
 
     # Do the SVD to split the single MPS node into two
-    # TODO: Do the SVD manually (without using TensorNetwork...) to decide which side S goes on (left or right)
-    #  where S is such that U S V^\dagger is the singular value decomposition of the new MPS node
-    # a, b, _ = tn.split_node(new_node, left_edges=left_edges, right_edges=right_edges)
-
     u, s, vdag, _ = tn.split_node_full_svd(new_node, left_edges=left_edges, right_edges=right_edges)
 
-    print("\n\nU tensor:")
-    print(u.tensor)
-    print(u.edges)
-
-    print("\n\nS tensor:")
-    print(s.tensor)
-    print(s.edges)
-
-    print("\n\nVdag tensor")
-    print(vdag.tensor)
-    print(vdag.edges)
-
-    # TODO: Add option to contract U with S and leave Vdag as the new right tensor
-    new_left = u
-    new_left.name = "new_left"
-    new_right = tn.contract_between(s, vdag, name="new_right")
-
-    print("\n\nNew left tensor:")
-    print(new_left.tensor)
-    print(new_left.edges)
-
-    print("\n\nNew right tensor:")
-    print(new_right.tensor)
-    print(new_right.edges)
+    # Contract the tensors to keep left or right canonical form
+    if keep_left_canonical:
+        new_left = u
+        new_right = tn.contract_between(s, vdag)
+    else:
+        new_left = tn.contract_between(u, s)
+        new_right = vdag
 
     # Put the new tensors after applying the gate back into the MPS list
     new_left.name = mpslist[indexA].name
