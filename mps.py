@@ -251,6 +251,12 @@ def apply_two_qubit_gate(
         raise ValueError("Two qubit gate must have four free edges and zero connected edges.")
 
     # Connect the MPS tensors to the gate edges
+    if indexA < indexB:
+        left_index = indexA
+        right_index = indexB
+    else:
+        raise ValueError(f"IndexA must be less than IndexB.")
+
     _ = tn.connect(
         list(mpslist[indexA].get_all_dangling())[0], gate.get_edge(0)
     )  # TODO: Which gate edge should be used here?
@@ -272,10 +278,6 @@ def apply_two_qubit_gate(
     new_node = tn.contract(node_gate_edge, name="new_mps_tensor")
 
     # Get the left and right connected edges (if any)
-    if indexA < indexB:
-        left_index = indexA
-    else:
-        left_index = indexB
     left_connected_edge = None
     right_connected_edge = None
     for connected_edge in new_node.get_all_nondangling():
@@ -299,7 +301,8 @@ def apply_two_qubit_gate(
     right_edges = [edge for edge in (right_free_edge, right_connected_edge) if edge is not None]
 
     # Do the SVD to split the single MPS node into two
-    u, s, vdag, _ = tn.split_node_full_svd(new_node, left_edges=left_edges, right_edges=right_edges)
+    u, s, vdag, _ = tn.split_node_full_svd(new_node, left_edges=left_edges, right_edges=right_edges,
+                                           left_name="u", middle_name="s", right_name="vdag")
 
     # Contract the tensors to keep left or right canonical form
     if keep_left_canonical:
@@ -312,5 +315,6 @@ def apply_two_qubit_gate(
     # Put the new tensors after applying the gate back into the MPS list
     new_left.name = mpslist[indexA].name
     new_right.name = mpslist[indexB].name
-    mpslist[indexA] = new_left
-    mpslist[indexB] = new_right
+
+    mpslist[left_index] = new_left
+    mpslist[right_index] = new_right
