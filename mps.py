@@ -214,6 +214,7 @@ def apply_two_qubit_gate(
         indexB: int,
         mpslist: List[tn.Node],
         keep_left_canonical: bool = True,
+        **kwargs
 ) -> None:
     """Modifies the input mpslist in place by applying a two qubit gate to the specified nodes.
 
@@ -234,6 +235,10 @@ def apply_two_qubit_gate(
 
                              If False, S is grouped with U so that the new left tensor is U @ S and
                              the new right tensor is Vdag.
+
+    Keyword Arguments:
+        max_singular_values (int): Number of singular values to keep.
+        max_truncation_err (int): Maximum allowed truncation error by throwing away singular values.
     """
     if not is_valid(mpslist):
         raise ValueError("Input mpslist does not define a valid MPS.")
@@ -301,8 +306,21 @@ def apply_two_qubit_gate(
     right_edges = [edge for edge in (right_free_edge, right_connected_edge) if edge is not None]
 
     # Do the SVD to split the single MPS node into two
-    u, s, vdag, _ = tn.split_node_full_svd(new_node, left_edges=left_edges, right_edges=right_edges,
-                                           left_name="u", middle_name="s", right_name="vdag")
+    if "max_singular_values" in kwargs.keys():
+        maxsvals = kwargs.get("max_singular_values")
+        print(f"Truncating SVD, only keeping top {maxsvals} singular value(s).")
+    else:
+        maxsvals = None
+
+    u, s, vdag, _ = tn.split_node_full_svd(
+        new_node,
+        left_edges=left_edges,
+        right_edges=right_edges,
+        max_singular_values=maxsvals,
+        left_name="u",
+        middle_name="s",
+        right_name="vdag"
+    )
 
     # Contract the tensors to keep left or right canonical form
     if keep_left_canonical:
