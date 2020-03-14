@@ -248,7 +248,6 @@ class MPS:
             gate: tn.Node,
             indexA: int,
             indexB: int,
-            keep_left_canonical: bool = True,
             **kwargs
     ) -> None:
         """Modifies the input mpslist in place by applying a two qubit gate to the specified nodes.
@@ -340,7 +339,14 @@ class MPS:
         left_edges = [edge for edge in (left_free_edge, left_connected_edge) if edge is not None]
         right_edges = [edge for edge in (right_free_edge, right_connected_edge) if edge is not None]
 
+        # ================================================
         # Do the SVD to split the single MPS node into two
+        # ================================================
+        # Options for canonicalization + truncation
+        if "keep_left_canonical" in kwargs.keys():
+            keep_left_canonical = kwargs.get("keep_left_canonical")
+        else:
+            keep_left_canonical = True
         if "max_singular_values" in kwargs.keys():
             maxsvals = kwargs.get("max_singular_values")
             print(f"Truncating SVD, only keeping top {maxsvals} singular value(s).")
@@ -370,19 +376,7 @@ class MPS:
         self._nodes[right_index] = new_right
 
     def cnot(self, a: int, b: int, **kwargs):
-        if "keep_left_canonical" in kwargs.keys():
-            left = kwargs.get("keep_left_canonical")
-        else:
-            left = True
-        if "max_singular_values" in kwargs.keys():
-            maxsvals = kwargs.get("max_singular_values")
-        else:
-            maxsvals = None
-        self.apply_two_qubit_gate(cnot(), a, b, keep_left_canonical=left, max_singular_values=maxsvals)
+        self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
 
     def swap(self, a: int, b: int, **kwargs):
-        if "keep_left_canonical" in kwargs.keys():
-            left = kwargs.get("keep_left_canonical")
-        else:
-            left = True
-        self.apply_two_qubit_gate(swap(), a, b, keep_left_canonical=left)
+        self.apply_two_qubit_gate(swap(), a, b, **kwargs)
