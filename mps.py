@@ -218,7 +218,7 @@ class MPS:
             self.apply_one_qubit_gate(gate, i)
 
     def x(self, index: int) -> None:
-        """Applies a  NOT (Pauli-X) gate to a qubit specified by the index.
+        """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
 
         If index == -1, the gate is applied to all qubits.
 
@@ -229,6 +229,19 @@ class MPS:
             self.apply_one_qubit_gate_to_all(xgate())
         else:
             self.apply_one_qubit_gate(xgate(), index)
+
+    def h(self, index: int) -> None:
+        """Applies a Hadamard gate to a qubit specified by the index.
+
+        If index == -1, the gate is applied to all qubits.
+
+        Args:
+            index: Index of qubit (tensor) to apply X gate to.
+        """
+        if index == -1:
+            self.apply_one_qubit_gate_to_all(hgate())
+        else:
+            self.apply_one_qubit_gate(hgate(), index)
 
     def apply_two_qubit_gate(
             self,
@@ -355,3 +368,21 @@ class MPS:
 
         self._nodes[left_index] = new_left
         self._nodes[right_index] = new_right
+
+    def cnot(self, a: int, b: int, **kwargs):
+        if "keep_left_canonical" in kwargs.keys():
+            left = kwargs.get("keep_left_canonical")
+        else:
+            left = True
+        if "max_singular_values" in kwargs.keys():
+            maxsvals = kwargs.get("max_singular_values")
+        else:
+            maxsvals = None
+        self.apply_two_qubit_gate(cnot(), a, b, keep_left_canonical=left, max_singular_values=maxsvals)
+
+    def swap(self, a: int, b: int, **kwargs):
+        if "keep_left_canonical" in kwargs.keys():
+            left = kwargs.get("keep_left_canonical")
+        else:
+            left = True
+        self.apply_two_qubit_gate(swap(), a, b, keep_left_canonical=left)
