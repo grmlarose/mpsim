@@ -562,3 +562,22 @@ def test_cnot_truncation_two_qubits_product(left):
         wavefunction = mps.get_wavefunction_of_mps(mpslist)
         correct = np.array([0., 0., 0., 1.])
         assert np.array_equal(wavefunction, correct)
+
+
+def test_cnot_truncation_on_bell_state():
+    """Tests CNOT with truncation on the state |00> + |10>."""
+    # Test with truncation
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    mps.apply_one_qubit_gate(mps.hgate(), 0, mpslist)
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, mpslist, max_singular_values=1)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([1 / np.sqrt(2), 0., 0., 0.])
+    assert np.allclose(wavefunction, correct)
+
+    # Test keeping all singular values ==> Bell state
+    mpslist = mps.get_zero_state_mps(nqubits=2)
+    mps.apply_one_qubit_gate(mps.hgate(), 0, mpslist)
+    mps.apply_two_qubit_gate(mps.cnot(), 0, 1, mpslist, max_singular_values=2)
+    wavefunction = mps.get_wavefunction_of_mps(mpslist)
+    correct = np.array([1 / np.sqrt(2), 0., 0., 1 / np.sqrt(2)])
+    assert np.allclose(wavefunction, correct)
