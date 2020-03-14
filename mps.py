@@ -62,6 +62,7 @@ def rgate(seed: Optional[int] = None):
     # Get the unitary
     unitary = expm(-1j * theta * (mx * _xmatrix + my * _ymatrix * mz * _zmatrix))
 
+    # TODO: Note to Guifre diagonal elements of this unitary are always real, and off-diagonal elements are imaginary
     return tn.Node(unitary)
 
 
@@ -395,9 +396,31 @@ class MPS:
         else:
             self.apply_one_qubit_gate(hgate(), index)
 
+    def r(self, index, seed: Optional[int] = None) -> None:
+        """Applies a random rotation to the qubit indexed by `index`.
+
+        If index == -1, random rotations are applied to all qubits. (Different rotations.)
+
+        """
+        if index == -1:
+            for i in range(self._nqubits):
+                self.apply_one_qubit_gate(rgate(seed), i)
+        else:
+            self.apply_one_qubit_gate(rgate(seed), index)
+
     def cnot(self, a: int, b: int, **kwargs) -> None:
         """Applies a CNOT gate with qubit indexed `a` as control."""
         self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
+
+    def sweep_cnots_left_to_right(self, keep: int) -> None:
+        """Applies a layer of CNOTs between adjacent qubits going from left to right."""
+        for i in range(0, self._nqubits - 1, 2):
+            self.cnot(i, i + 1, keep_left_canonical=True, max_singular_values=keep)
+
+    def sweep_cnots_right_to_left(self, keep: int) -> None:
+        """Applies a layer of CNOTs between adjacent qubits going from right to left."""
+        for i in range(self._nqubits - 2, 0, -2):
+            self.cnot(i - 1, i, keep_left_canonical=False, max_singular_values=keep)
 
     def swap(self, a: int, b: int, **kwargs) -> None:
         """Applies a SWAP gate between qubits indexed `a` and `b`."""
