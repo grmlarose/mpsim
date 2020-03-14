@@ -1,9 +1,10 @@
 """Code for Matrix Product State initialization, manipulation, and operations."""
 
 from copy import deepcopy
-from typing import List
+from typing import (List, Optional)
 
 import numpy as np
+from scipy.linalg import expm
 import tensornetwork as tn
 
 
@@ -23,24 +24,45 @@ _zmatrix = np.array([[1., 0.], [0., -1.]], dtype=np.complex64)
 
 # Common single qubit gates as tn.Node objects
 # Note that functions are used because TensorNetwork connect/contract functions modify Node objects
-def igate():
+def igate() -> tn.Node:
     return tn.Node(deepcopy(_imatrix), name="igate")
 
 
-def xgate():
+def xgate() -> tn.Node:
+    """Returns a Pauli X (NOT) gate."""
     return tn.Node(deepcopy(_xmatrix), name="xgate")
 
 
-def ygate():
+def ygate() -> tn.Node:
+    """Returns a Pauli Y gate."""
     return tn.Node(deepcopy(_ymatrix), name="ygate")
 
 
-def zgate():
+def zgate() -> tn.Node:
+    """Returns a Pauli Z gate."""
     return tn.Node(deepcopy(_zmatrix), name="zmat")
 
 
-def hgate():
+def hgate() -> tn.Node:
+    """Returns a Hadamard gate."""
     return tn.Node(deepcopy(_hmatrix), name="hgate")
+
+
+def rgate(seed: Optional[int] = None):
+    """Returns the random single qubit gate described in https://arxiv.org/abs/2002.07730."""
+    if seed:
+        np.random.seed(seed)
+
+    # Get the random parameters
+    theta, alpha, phi = np.random.rand(3) * 2 * np.pi
+    mx = np.sin(alpha) * np.cos(phi)
+    my = np.sin(alpha) * np.sin(phi)
+    mz = np.cos(alpha)
+
+    # Get the unitary
+    unitary = expm(-1j * theta * (mx * _xmatrix + my * _ymatrix * mz * _zmatrix))
+
+    return tn.Node(unitary)
 
 
 # Common two qubit gates as np.ndarray objects
@@ -316,10 +338,12 @@ class MPS:
         left_connected_edge = None
         right_connected_edge = None
         for connected_edge in new_node.get_all_nondangling():
-            if "q" in connected_edge.node1.name:
-                index = int(connected_edge.node1.name.split("q")[-1])  # Use the "node1" node by default
+            if self._prefix in connected_edge.node1.name:
+                # Use the "node1" node by default
+                index = int(connected_edge.node1.name.split(self._prefix)[-1])
             else:
-                index = int(connected_edge.node2.name.split("q")[-1])  # If "node1" is the new_mps_node, use "node2"
+                # If "node1" is the new_mps_node, use "node2"
+                index = int(connected_edge.node2.name.split(self._prefix)[-1])
 
             # Get the connected edges (if any)
             if index <= left_index:
