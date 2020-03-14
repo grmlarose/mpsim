@@ -236,32 +236,6 @@ class MPS:
         for i in range(self._nqubits):
             self.apply_one_qubit_gate(gate, i)
 
-    def x(self, index: int) -> None:
-        """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
-
-        If index == -1, the gate is applied to all qubits.
-
-        Args:
-            index: Index of qubit (tensor) to apply X gate to.
-        """
-        if index == -1:
-            self.apply_one_qubit_gate_to_all(xgate())
-        else:
-            self.apply_one_qubit_gate(xgate(), index)
-
-    def h(self, index: int) -> None:
-        """Applies a Hadamard gate to a qubit specified by the index.
-
-        If index == -1, the gate is applied to all qubits.
-
-        Args:
-            index: Index of qubit (tensor) to apply X gate to.
-        """
-        if index == -1:
-            self.apply_one_qubit_gate_to_all(hgate())
-        else:
-            self.apply_one_qubit_gate(hgate(), index)
-
     def apply_two_qubit_gate(
             self,
             gate: tn.Node,
@@ -395,8 +369,36 @@ class MPS:
         self._nodes[left_index] = new_left
         self._nodes[right_index] = new_right
 
-    def cnot(self, a: int, b: int, **kwargs):
+    def x(self, index: int) -> None:
+        """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
+
+        If index == -1, the gate is applied to all qubits.
+
+        Args:
+            index: Index of qubit (tensor) to apply X gate to.
+        """
+        if index == -1:
+            self.apply_one_qubit_gate_to_all(xgate())
+        else:
+            self.apply_one_qubit_gate(xgate(), index)
+
+    def h(self, index: int) -> None:
+        """Applies a Hadamard gate to a qubit specified by the index.
+
+        If index == -1, the gate is applied to all qubits.
+
+        Args:
+            index: Index of qubit (tensor) to apply X gate to.
+        """
+        if index == -1:
+            self.apply_one_qubit_gate_to_all(hgate())
+        else:
+            self.apply_one_qubit_gate(hgate(), index)
+
+    def cnot(self, a: int, b: int, **kwargs) -> None:
+        """Applies a CNOT gate with qubit indexed `a` as control."""
         self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
 
-    def swap(self, a: int, b: int, **kwargs):
+    def swap(self, a: int, b: int, **kwargs) -> None:
+        """Applies a SWAP gate between qubits indexed `a` and `b`."""
         self.apply_two_qubit_gate(swap(), a, b, **kwargs)
