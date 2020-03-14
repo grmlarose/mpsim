@@ -186,7 +186,6 @@ class MPS:
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
             index: Index of tensor (qubit) in the mpslist to apply the single qubit gate to.
-            mpslist: List of tn.Node objects representing a valid MPS.
         """
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
@@ -211,8 +210,6 @@ class MPS:
 
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
-            index: Index of tensor (qubit) in the mpslist to apply the single qubit gate to.
-            mpslist: List of tn.Node objects representing a valid MPS.
         """
         for i in range(self._nqubits):
             self.apply_one_qubit_gate(gate, i)
@@ -261,7 +258,8 @@ class MPS:
                     gate edge 3: Becomes free index of new tensor at indexB after contracting.
             indexA: Index of first tensor (qubit) in the mpslist to apply the single qubit gate to.
             indexB: Index of second tensor (qubit) in the mpslist to apply the single qubit gate to.
-            mpslist: List of tn.Node objects representing a valid MPS.
+
+        Keyword Arguments:
             keep_left_canonical: After performing an SVD on the new node to obtain U, S, Vdag,
                                  S is grouped with Vdag to form the new right tensor. That is,
                                  the left tensor is U, and the right tensor is S @ Vdag. This keeps
@@ -269,8 +267,6 @@ class MPS:
 
                                  If False, S is grouped with U so that the new left tensor is U @ S and
                                  the new right tensor is Vdag.
-
-        Keyword Arguments:
             max_singular_values (int): Number of singular values to keep.
             max_truncation_err (int): Maximum allowed truncation error by throwing away singular values.
         """
