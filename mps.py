@@ -432,6 +432,9 @@ class MPS:
 
         If index == -1, random rotations are applied to all qubits. (Different rotations.)
 
+        Args:
+            index: Index of tensor to apply rotation to.
+            seed: Seed for random number generator.
         """
         if index == -1:
             for i in range(self._nqubits):
@@ -440,7 +443,7 @@ class MPS:
             self.apply_one_qubit_gate(rgate(seed), index)
 
     def cnot(self, a: int, b: int, **kwargs) -> None:
-        """Applies a CNOT gate with qubit indexed `a` as control."""
+        """Applies a CNOT gate with qubit indexed `a` as control and qubit indexed `b` as target."""
         self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
 
     def sweep_cnots_left_to_right(self, keep: Optional[int] = None) -> None:
