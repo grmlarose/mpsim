@@ -5,6 +5,7 @@ from typing import (List, Optional)
 
 import numpy as np
 from scipy.linalg import expm
+from scipy.stats import unitary_group
 import tensornetwork as tn
 
 
@@ -80,12 +81,25 @@ _swap_matrix = np.reshape(_swap_matrix, newshape=(2, 2, 2, 2))
 
 
 # Common two qubit gates as tn.Node objects
-def cnot():
+def cnot() -> tn.Node:
     return tn.Node(deepcopy(_cnot_matrix), name="cnot")
 
 
-def swap():
+def swap() -> tn.Node:
     return tn.Node(deepcopy(_swap_matrix), name="swap")
+
+
+def random_two_qubit_gate(seed: Optional[int] = None) -> tn.Node:
+    """Returns a random two-qubit gate.
+
+    Args:
+        seed: Seed for random number generator.
+    """
+    if seed:
+        np.random.seed(seed)
+    unitary = unitary_group.rvs(dim=4)
+    unitary = np.reshape(unitary, newshape=(2, 2, 2, 2))
+    return tn.Node(deepcopy(unitary), name="R2Q")
 
 
 class MPS:
@@ -135,6 +149,23 @@ class MPS:
     @property
     def nqubits(self):
         return self._nqubits
+
+    def bond_dimension_of(self, index: int) -> int:
+        """Returns the bond dimension of the right edge of the node at the given index.
+
+        Args:
+            index: Index of the node. The returned bond dimension is that of the right edge of the given node.
+        """
+        if not self.is_valid():
+            raise ValueError("MPS is invalid.")
+        if index >= self._nqubits:
+            raise ValueError(f"Index should be less than {self._nqubits} but is {index}.")
+
+        left = self.get_node(index, copy=False)
+        right = self.get_node(index + 1, copy=False)
+        tn.check_connected((left, right))
+        edge = tn.get_shared_edges(left, right).pop()
+        return edge.dimension
 
     def is_valid(self) -> bool:
         """Returns true if the mpslist defines a valid MPS, else False.
@@ -412,12 +443,12 @@ class MPS:
         """Applies a CNOT gate with qubit indexed `a` as control."""
         self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
 
-    def sweep_cnots_left_to_right(self, keep: int) -> None:
+    def sweep_cnots_left_to_right(self, keep: Optional[int] = None) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from left to right."""
         for i in range(0, self._nqubits - 1, 2):
             self.cnot(i, i + 1, keep_left_canonical=True, max_singular_values=keep)
 
-    def sweep_cnots_right_to_left(self, keep: int) -> None:
+    def sweep_cnots_right_to_left(self, keep: Optional[int] = None) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from right to left."""
         for i in range(self._nqubits - 2, 0, -2):
             self.cnot(i - 1, i, keep_left_canonical=False, max_singular_values=keep)
@@ -425,3 +456,6 @@ class MPS:
     def swap(self, a: int, b: int, **kwargs) -> None:
         """Applies a SWAP gate between qubits indexed `a` and `b`."""
         self.apply_two_qubit_gate(swap(), a, b, **kwargs)
+
+    def __str__(self):
+        return "----".join(str(tensor) for tensor in self._nodes)

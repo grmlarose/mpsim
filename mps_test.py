@@ -6,7 +6,8 @@ import numpy as np
 import tensornetwork as tn
 
 from mps.mps import (MPS,
-                     igate, xgate, zgate, hgate, cnot, swap,
+                     igate, xgate, zgate, hgate,
+                     cnot, swap, random_two_qubit_gate,
                      zero_state, one_state, plus_state)
 
 
@@ -504,3 +505,16 @@ def test_cnot_truncation_on_bell_state():
     mps.cnot(0, 1, max_singular_values=2)
     correct = np.array([1 / np.sqrt(2), 0., 0., 1 / np.sqrt(2)])
     assert np.allclose(mps.wavefunction, correct)
+
+
+def test_bond_dimension_doubles_two_qubit_gate():
+    """Tests that the bond dimension doubles after applying a two-qubit gate."""
+    mps = MPS(nqubits=2)
+    assert mps.bond_dimension_of(0) == 1
+    mps.h(0)
+    assert mps.bond_dimension_of(0) == 1
+    mps.cnot(0, 1)
+    assert mps.is_valid()
+    assert mps.bond_dimension_of(0) == 2
+    mps.cnot(0, 1)
+    assert mps.bond_dimension_of(0) == 2
