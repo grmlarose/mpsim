@@ -1,2 +1,4 @@
 numpy>=1.18.1
 tensornetwork==0.2.1
+scipy>=1.4.1
+
