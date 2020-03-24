@@ -1,3 +1,3 @@
-# MPS
+# MPSIM
 
-Code for simulating (noisy) quantum circuits with Matrix Product States.
+Code for SImulating (noisy) quantum circuits with Matrix Product States.
