@@ -5,10 +5,11 @@ import pytest
 import numpy as np
 import tensornetwork as tn
 
-from mps.mps import (MPS,
-                     igate, xgate, zgate, hgate,
-                     cnot, swap, random_two_qubit_gate,
-                     zero_state, one_state, plus_state)
+from mps import MPS
+
+from mps.gates import (igate, xgate, zgate, hgate,
+                       cnot, swap, random_two_qubit_gate,
+                       zero_state, one_state, plus_state)
 
 
 def test_mps_one_qubit():
