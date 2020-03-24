@@ -8,7 +8,7 @@ import sys
 import time
 from typing import Union
 
-from mps import MPS
+from mpsim import MPS
 
 
 def simulate(nqubits: int, depth: int, keep: Union[None, int], verbose: bool = False) -> MPS:

@@ -5,8 +5,7 @@ from typing import (List, Optional)
 import numpy as np
 import tensornetwork as tn
 
-from mps.gates import (xgate, hgate, cnot, swap)
-from mps.gates import random_two_qubit_gate as rgate
+from mpsim.gates import (hgate, rgate, xgate, cnot, swap)
 
 
 class MPS:
