@@ -103,7 +103,7 @@ class MPS:
         """Returns the bond dimensions of the MPS."""
         return [self.bond_dimension_of(i) for i in range(self._nqubits - 1)]
 
-    def max_bond_dimension_of(self, index: int) -> int:
+    def get_max_bond_dimension_of(self, index: int) -> int:
         """Returns the maximumb bond dimension of the right edge of the node at the given index.
 
         Args:
@@ -115,6 +115,10 @@ class MPS:
                 f"Index should be less than {self._nqubits} but is {index}."
             )
         return self._max_bond_dimensions[index]
+    
+    def get_max_bond_dimensions(self) -> List[int]:
+        """Returns the maximum bond dimensions of the MPS."""
+        return self._max_bond_dimensions
 
     def is_valid(self) -> bool:
         """Returns true if the mpslist defines a valid MPS, else False.
@@ -247,7 +251,8 @@ class MPS:
 
                                  If False, S is grouped with U so that the new left tensor is U @ S and
                                  the new right tensor is Vdag.
-            max_singular_values (int): Number of singular values to keep.
+            max_singular_values (Union[int, str]): Number of singular values to keep, or strategy for keeping singular values.
+                String options: "all" or "half" (the max bond dimension).
             max_truncation_err (int): Maximum allowed truncation error by throwing away singular values.
         """
         if not self.is_valid():
@@ -348,7 +353,12 @@ class MPS:
             keep_left_canonical = True
         if "max_singular_values" in kwargs.keys():
             maxsvals = kwargs.get("max_singular_values")
+            if maxsvals == "half":
+                print("truncation strategy: half")
+                maxsvals = self.get_max_bond_dimension_of(min(indexA, indexB)) // 2
             # print(f"Truncating SVD, only keeping top {maxsvals} singular value(s).")
+            elif maxsvals == "all":
+                maxsvals = None
         else:
             maxsvals = None
 

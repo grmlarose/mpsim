@@ -54,11 +54,11 @@ def test_get_max_bond_dimension():
     """Tests correctness for getting the maximum bond dimensions in an MPS."""
     mps = MPS(nqubits=10)
     # Correct max bond dimensions: [2, 4, 8, 16, 32, 16, 8, 4, 2]
-    assert mps.max_bond_dimension_of(0) == 2
-    assert mps.max_bond_dimension_of(-1) == 2
-    assert mps.max_bond_dimension_of(3) == 16
-    assert mps.max_bond_dimension_of(4) == 32
-    assert mps.max_bond_dimension_of(5) == 16
+    assert mps.get_max_bond_dimension_of(0) == 2
+    assert mps.get_max_bond_dimension_of(-1) == 2
+    assert mps.get_max_bond_dimension_of(3) == 16
+    assert mps.get_max_bond_dimension_of(4) == 32
+    assert mps.get_max_bond_dimension_of(5) == 16
 
 
 def test_get_bond_dimensions_product_state():
@@ -631,3 +631,31 @@ def test_bond_dimension_doubles_two_qubit_gate():
     assert mps.bond_dimension_of(0) == 2
     mps.cnot(0, 1)
     assert mps.bond_dimension_of(0) == 2
+
+
+def test_keep_half_bond_dimension_singular_values():
+    """Tests keeping a number of singular values which is half the maximum bond dimension."""
+    # Get an MPS and test the initial bond dimensions and maximum bond dimensions
+    mps = MPS(nqubits=4)
+    assert mps.get_bond_dimensions() == [1, 1, 1]
+    assert mps.get_max_bond_dimensions() == [2, 4, 2]
+    
+    # Apply a two qubit gate keeping all singular values
+    mps.r(-1)
+    mps.apply_two_qubit_gate(
+        cnot(), 0, 1, max_singular_values="all"
+    )
+    assert mps.get_bond_dimensions() == [2, 1, 1]
+    
+    # Get an MPS and test the initial bond dimensions and maximum bond dimensions
+    mps = MPS(nqubits=4)
+    assert mps.get_bond_dimensions() == [1, 1, 1]
+    assert mps.get_max_bond_dimensions() == [2, 4, 2]
+    
+    # Apply a two qubit gate keeping half the singular values
+    mps.r(-1)
+    mps.apply_two_qubit_gate(
+        cnot(), 0, 1, max_singular_values="half"
+    )
+    assert mps.get_bond_dimensions() == [1, 1, 1]
+    
