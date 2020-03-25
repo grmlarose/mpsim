@@ -52,6 +52,15 @@ def test_get_max_bond_dimension():
     assert mps.max_bond_dimension_of(5) == 16
 
 
+def test_get_bond_dimensions_product_state():
+    """Tests correctness for bond dimensions of a product state MPS."""
+    n = 5
+    mps = MPS(nqubits=n)
+    assert mps.get_bond_dimensions() == [1] * (n - 1)
+    mps.h(-1)
+    assert mps.get_bond_dimensions() == [1] * (n - 1)
+
+
 def test_get_wavefunction_simple():
     """Tests getting the wavefunction of a simple MPS."""
     mps = MPS(nqubits=3)
@@ -536,7 +545,7 @@ def test_cnot_truncation_on_bell_state():
 
 
 def test_bond_dimension_doubles_two_qubit_gate():
-    """Tests that the bond dimension doubles after applying a two-qubit gate."""
+    """Tests that the bond dimension doubles after applying a two-qubit gate to a product state."""
     mps = MPS(nqubits=2)
     assert mps.bond_dimension_of(0) == 1
     mps.h(0)

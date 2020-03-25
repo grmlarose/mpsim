@@ -77,6 +77,10 @@ class MPS:
         edge = tn.get_shared_edges(left, right).pop()
         return edge.dimension
 
+    def get_bond_dimensions(self) -> List[int]:
+        """Returns the bond dimensions of the MPS."""
+        return [self.bond_dimension_of(i) for i in range(self._nqubits - 1)]
+
     def max_bond_dimension_of(self, index: int) -> int:
         """Returns the maximumb bond dimension of the right edge of the node at the given index.
 
