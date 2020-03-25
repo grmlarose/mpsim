@@ -25,6 +25,22 @@ def test_is_valid_for_product_states():
         assert mps.is_valid()
 
 
+def test_max_bond_dimensions_odd_nqubits():
+    """Tests for correctness of maximum bond dimensions for an MPS with an odd number of qubits."""
+    mps = MPS(nqubits=5)
+    assert mps._max_bond_dimensions == [2, 4, 4, 2]
+    mps = MPS(nqubits=7)
+    assert mps._max_bond_dimensions == [2, 4, 8, 8, 4, 2]
+
+
+def test_max_bond_dimensions_even_nqubits():
+    """Tests for correctness of maximum bond dimensions for an MPS with an even number of qubits."""
+    mps = MPS(nqubits=6)
+    assert mps._max_bond_dimensions == [2, 4, 8, 4, 2]
+    mps = MPS(nqubits=8)
+    assert mps._max_bond_dimensions == [2, 4, 8, 16, 8, 4, 2]
+
+
 def test_get_wavefunction_simple():
     """Tests getting the wavefunction of a simple MPS."""
     mps = MPS(nqubits=3)

@@ -51,6 +51,10 @@ class MPS:
         self._nqubits = nqubits
         self._prefix = tensor_prefix
         self._nodes = nodes
+        self._max_bond_dimensions = [2**(i + 1) for i in range(self._nqubits // 2)]
+        self._max_bond_dimensions += list(reversed(self._max_bond_dimensions))
+        if self._nqubits % 2 == 0:
+            self._max_bond_dimensions.remove(2**(self._nqubits // 2))
 
     @property
     def nqubits(self):
