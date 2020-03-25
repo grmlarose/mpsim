@@ -41,6 +41,17 @@ def test_max_bond_dimensions_even_nqubits():
     assert mps._max_bond_dimensions == [2, 4, 8, 16, 8, 4, 2]
 
 
+def test_get_max_bond_dimension():
+    """Tests correctness for getting the maximum bond dimensions in an MPS."""
+    mps = MPS(nqubits=10)
+    # Correct max bond dimensions: [2, 4, 8, 16, 32, 16, 8, 4, 2]
+    assert mps.max_bond_dimension_of(0) == 2
+    assert mps.max_bond_dimension_of(-1) == 2
+    assert mps.max_bond_dimension_of(3) == 16
+    assert mps.max_bond_dimension_of(4) == 32
+    assert mps.max_bond_dimension_of(5) == 16
+
+
 def test_get_wavefunction_simple():
     """Tests getting the wavefunction of a simple MPS."""
     mps = MPS(nqubits=3)

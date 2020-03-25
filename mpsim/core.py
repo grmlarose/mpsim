@@ -77,6 +77,17 @@ class MPS:
         edge = tn.get_shared_edges(left, right).pop()
         return edge.dimension
 
+    def max_bond_dimension_of(self, index: int) -> int:
+        """Returns the maximumb bond dimension of the right edge of the node at the given index.
+
+        Args:
+            index: Index of the node. The returned bond dimension is that of the right edge of the given node.
+                    Negative indices count backwards from the right of the MPS and are allowed.
+        """
+        if index >= self._nqubits:
+            raise ValueError(f"Index should be less than {self._nqubits} but is {index}.")
+        return self._max_bond_dimensions[index]
+
     def is_valid(self) -> bool:
         """Returns true if the mpslist defines a valid MPS, else False.
 
