@@ -23,8 +23,7 @@ class MPS:
 
         Args:
             nqubits: Number of qubits in the all zero state.
-            tensor_prefix: Prefix for tensors. The full name is prefix + numerical index,
-                           numbered from left to right starting with zero.
+            tensor_prefix: Prefix for tensors. The full name is prefix + numerical index, numbered from left to right starting with zero.
         """
         if nqubits < 2:
             raise ValueError(
@@ -80,7 +79,7 @@ class MPS:
     def nqubits(self):
         return self._nqubits
 
-    def bond_dimension_of(self, index: int) -> int:
+    def get_bond_dimension_of(self, index: int) -> int:
         """Returns the bond dimension of the right edge of the node at the given index.
 
         Args:
@@ -101,7 +100,7 @@ class MPS:
 
     def get_bond_dimensions(self) -> List[int]:
         """Returns the bond dimensions of the MPS."""
-        return [self.bond_dimension_of(i) for i in range(self._nqubits - 1)]
+        return [self.get_bond_dimension_of(i) for i in range(self._nqubits - 1)]
 
     def get_max_bond_dimension_of(self, index: int) -> int:
         """Returns the maximumb bond dimension of the right edge of the node at the given index.
@@ -251,9 +250,7 @@ class MPS:
 
                                  If False, S is grouped with U so that the new left tensor is U @ S and
                                  the new right tensor is Vdag.
-            max_singular_values (Union[int, str]): Number of singular values to keep, or strategy for keeping singular values.
-                String options: "all" or "half" (the max bond dimension).
-            max_truncation_err (int): Maximum allowed truncation error by throwing away singular values.
+            fraction (float): Number of singular values to keep expressed as a fraction of the maximum bond dimension. Must be between 0 and 1, inclusive.
         """
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
@@ -351,16 +348,13 @@ class MPS:
             keep_left_canonical = kwargs.get("keep_left_canonical")
         else:
             keep_left_canonical = True
-        if "max_singular_values" in kwargs.keys():
-            maxsvals = kwargs.get("max_singular_values")
-            if maxsvals == "half":
-                print("truncation strategy: half")
-                maxsvals = self.get_max_bond_dimension_of(min(indexA, indexB)) // 2
-            # print(f"Truncating SVD, only keeping top {maxsvals} singular value(s).")
-            elif maxsvals == "all":
-                maxsvals = None
+        if "fraction" in kwargs.keys():
+            fraction = kwargs.get("fraction")
+            if not (0 <= fraction <= 1):
+                raise ValueError("Keyword fraction must be between 0 and 1 but is", fraction)
+            maxsvals = int(round(fraction * self.get_max_bond_dimension_of(min(indexA, indexB))))
         else:
-            maxsvals = None
+            maxsvals = None  # Keeps all singular values
 
         u, s, vdag, _ = tn.split_node_full_svd(
             new_node,
