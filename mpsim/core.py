@@ -74,7 +74,7 @@ class MPS:
         self._max_bond_dimensions += list(reversed(self._max_bond_dimensions))
         if self._nqubits % 2 == 0:
             self._max_bond_dimensions.remove(2 ** (self._nqubits // 2))
-        self._fidelities = []  # type: List[float]
+        self._infidelities = []  # type: List[float]
 
     @property
     def nqubits(self):
@@ -364,8 +364,8 @@ class MPS:
             max_singular_values=maxsvals,
         )
         
-        # Store the truncated fidelities
-        self._fidelities.append(1 - np.real(sum(np.conj(x) * x for x in truncated_svals)))
+        # Store the truncated infidelities
+        self._infidelities.append(np.real(sum(np.conj(x) * x for x in truncated_svals)))
 
         # Contract the tensors to keep left or right canonical form
         if keep_left_canonical:
