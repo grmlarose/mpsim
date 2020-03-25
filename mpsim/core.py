@@ -423,18 +423,18 @@ class MPS:
         """Applies a CNOT gate with qubit indexed `a` as control and qubit indexed `b` as target."""
         self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
 
-    def sweep_cnots_left_to_right(self, keep: Optional[int] = None) -> None:
+    def sweep_cnots_left_to_right(self, fraction: Optional[float] = None) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from left to right."""
         for i in range(0, self._nqubits - 1, 2):
             self.cnot(
-                i, i + 1, keep_left_canonical=True, max_singular_values=keep
+                i, i + 1, keep_left_canonical=True, fraction=fraction
             )
 
-    def sweep_cnots_right_to_left(self, keep: Optional[int] = None) -> None:
+    def sweep_cnots_right_to_left(self, fraction: Optional[float] = None) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from right to left."""
         for i in range(self._nqubits - 2, 0, -2):
             self.cnot(
-                i - 1, i, keep_left_canonical=False, max_singular_values=keep
+                i - 1, i, keep_left_canonical=False, fraction=fraction
             )
 
     def swap(self, a: int, b: int, **kwargs) -> None:
