@@ -363,6 +363,8 @@ class MPS:
             max_singular_values=maxsvals,
         )
         
+        print("S diag:")
+        print(np.diag(s.tensor))
         print("Truncated singular values!!!", truncated_svals)
 
         # Contract the tensors to keep left or right canonical form
