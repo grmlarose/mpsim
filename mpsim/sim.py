@@ -6,8 +6,20 @@ from typing import Union
 from mpsim import MPS
 
 
-def simulate(nqubits: int, depth: int, keep: Union[None, int], verbose: bool = False) -> MPS:
-    """Simulates the algorithm for a given number of qubits and depth."""
+def simulate(nqubits: int, depth: int, keep: Union[None, int, str], verbose: bool = False) -> MPS:
+    """Simulates a Waintall circuit using MPS for a given number of qubits and depth.
+
+    Args:
+        nqubits: Number of qubits in the circuit.
+        depth: Depth of the circuit. See [1] for details.
+        keep: Number/strategy for keeping singular values.
+              Options:
+
+                None or "all": Keep all singular values for every two-qubit gate.
+                Integer number: Keep this many singular values for every two-qubit gate.
+                "half": Keep half the maximum bond dimension singular values for every two-qubit gate.
+
+    """
     mps = MPS(nqubits)
     if verbose:
         print("=" * 40)
