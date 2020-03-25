@@ -356,12 +356,14 @@ class MPS:
         else:
             maxsvals = None  # Keeps all singular values
 
-        u, s, vdag, _ = tn.split_node_full_svd(
+        u, s, vdag, truncated_svals = tn.split_node_full_svd(
             new_node,
             left_edges=left_edges,
             right_edges=right_edges,
             max_singular_values=maxsvals,
         )
+        
+        print("Truncated singular values!!!", truncated_svals)
 
         # Contract the tensors to keep left or right canonical form
         if keep_left_canonical:
