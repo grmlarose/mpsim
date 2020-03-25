@@ -250,8 +250,7 @@ class MPS:
 
                                  If False, S is grouped with U so that the new left tensor is U @ S and
                                  the new right tensor is Vdag.
-            max_singular_values (float): Number of singular values to keep expressed as a fraction of the maximum bond dimension. Must be between 0 and 1, inclusive.
-            max_truncation_err (int): Maximum allowed truncation error by throwing away singular values.
+            fraction (float): Number of singular values to keep expressed as a fraction of the maximum bond dimension. Must be between 0 and 1, inclusive.
         """
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
