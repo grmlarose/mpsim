@@ -1,15 +1,16 @@
 """Code for Matrix Product State initialization, manipulation, and operations."""
 
-from typing import (List, Optional)
+from typing import List, Optional
 
 import numpy as np
 import tensornetwork as tn
 
-from mpsim.gates import (hgate, rgate, xgate, cnot, swap)
+from mpsim.gates import hgate, rgate, xgate, cnot, swap
 
 
 class MPS:
     """Matrix Product State (MPS) for simulating (noisy) quantum circuits."""
+
     def __init__(self, nqubits: int, tensor_prefix: str = "q") -> None:
         """Returns a list of tensors in an MPS which define the all zero state on n qubits.
 
@@ -26,16 +27,33 @@ class MPS:
                            numbered from left to right starting with zero.
         """
         if nqubits < 2:
-            raise ValueError(f"Number of qubits must be greater than 2 but is {nqubits}.")
+            raise ValueError(
+                f"Number of qubits must be greater than 2 but is {nqubits}."
+            )
 
         # Get nodes on the interior
-        nodes = [tn.Node(
-            np.array([[[1.]], [[0, ]]], dtype=np.complex64), name=tensor_prefix + str(x + 1)
-        ) for x in range(nqubits - 2)]
+        nodes = [
+            tn.Node(
+                np.array([[[1.0]], [[0,]]], dtype=np.complex64),
+                name=tensor_prefix + str(x + 1),
+            )
+            for x in range(nqubits - 2)
+        ]
 
         # Get nodes on the end
-        nodes.insert(0, tn.Node(np.array([[1.], [0, ]], dtype=np.complex64), name=tensor_prefix + str(0)))
-        nodes.append(tn.Node(np.array([[1.], [0, ]], dtype=np.complex64), name=tensor_prefix + str(nqubits - 1)))
+        nodes.insert(
+            0,
+            tn.Node(
+                np.array([[1.0], [0,]], dtype=np.complex64),
+                name=tensor_prefix + str(0),
+            ),
+        )
+        nodes.append(
+            tn.Node(
+                np.array([[1.0], [0,]], dtype=np.complex64),
+                name=tensor_prefix + str(nqubits - 1),
+            )
+        )
 
         # Connect edges between middle nodes
         for i in range(1, nqubits - 2):
@@ -51,10 +69,12 @@ class MPS:
         self._nqubits = nqubits
         self._prefix = tensor_prefix
         self._nodes = nodes
-        self._max_bond_dimensions = [2**(i + 1) for i in range(self._nqubits // 2)]
+        self._max_bond_dimensions = [
+            2 ** (i + 1) for i in range(self._nqubits // 2)
+        ]
         self._max_bond_dimensions += list(reversed(self._max_bond_dimensions))
         if self._nqubits % 2 == 0:
-            self._max_bond_dimensions.remove(2**(self._nqubits // 2))
+            self._max_bond_dimensions.remove(2 ** (self._nqubits // 2))
 
     @property
     def nqubits(self):
@@ -69,7 +89,9 @@ class MPS:
         if not self.is_valid():
             raise ValueError("MPS is invalid.")
         if index >= self._nqubits:
-            raise ValueError(f"Index should be less than {self._nqubits} but is {index}.")
+            raise ValueError(
+                f"Index should be less than {self._nqubits} but is {index}."
+            )
 
         left = self.get_node(index, copy=False)
         right = self.get_node(index + 1, copy=False)
@@ -89,7 +111,9 @@ class MPS:
                     Negative indices count backwards from the right of the MPS and are allowed.
         """
         if index >= self._nqubits:
-            raise ValueError(f"Index should be less than {self._nqubits} but is {index}.")
+            raise ValueError(
+                f"Index should be less than {self._nqubits} but is {index}."
+            )
         return self._max_bond_dimensions[index]
 
     def is_valid(self) -> bool:
@@ -157,7 +181,7 @@ class MPS:
         if set(fin.get_all_dangling()) != set(fin.get_all_edges()):
             raise ValueError("Invalid MPS.")
 
-        return np.reshape(fin.tensor, newshape=(2**self._nqubits))
+        return np.reshape(fin.tensor, newshape=(2 ** self._nqubits))
 
     def apply_one_qubit_gate(self, gate: tn.Node, index: int) -> None:
         """Modifies the input mpslist in place by applying a single qubit gate to a specified node.
@@ -170,10 +194,17 @@ class MPS:
             raise ValueError("Input mpslist does not define a valid MPS.")
 
         if index not in range(self._nqubits):
-            raise ValueError(f"Input tensor index={index} is out of bounds for the input mpslist.")
+            raise ValueError(
+                f"Input tensor index={index} is out of bounds for the input mpslist."
+            )
 
-        if len(gate.get_all_dangling()) != 2 or len(gate.get_all_nondangling()) != 0:
-            raise ValueError("Single qubit gate must have two free edges and zero connected edges.")
+        if (
+            len(gate.get_all_dangling()) != 2
+            or len(gate.get_all_nondangling()) != 0
+        ):
+            raise ValueError(
+                "Single qubit gate must have two free edges and zero connected edges."
+            )
 
         # Connect the MPS and gate edges
         mps_edge = list(self._nodes[index].get_all_dangling())[0]
@@ -194,11 +225,7 @@ class MPS:
             self.apply_one_qubit_gate(gate, i)
 
     def apply_two_qubit_gate(
-            self,
-            gate: tn.Node,
-            indexA: int,
-            indexB: int,
-            **kwargs
+        self, gate: tn.Node, indexA: int, indexB: int, **kwargs
     ) -> None:
         """Modifies the input mpslist in place by applying a two qubit gate to the specified nodes.
 
@@ -226,17 +253,28 @@ class MPS:
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
 
-        if indexA not in range(self._nqubits) or indexB not in range(self.nqubits):
-            raise ValueError(f"Input tensor indices={(indexA, indexB)} are out of bounds for the input mpslist.")
+        if indexA not in range(self._nqubits) or indexB not in range(
+            self.nqubits
+        ):
+            raise ValueError(
+                f"Input tensor indices={(indexA, indexB)} are out of bounds for the input mpslist."
+            )
 
         if indexA == indexB:
             raise ValueError("Input indices are identical.")
 
         if abs(indexA - indexB) != 1:
-            raise ValueError("Indices must be for adjacent tensors (must differ by one).")
+            raise ValueError(
+                "Indices must be for adjacent tensors (must differ by one)."
+            )
 
-        if len(gate.get_all_dangling()) != 4 or len(gate.get_all_nondangling()) != 0:
-            raise ValueError("Two qubit gate must have four free edges and zero connected edges.")
+        if (
+            len(gate.get_all_dangling()) != 4
+            or len(gate.get_all_nondangling()) != 0
+        ):
+            raise ValueError(
+                "Two qubit gate must have four free edges and zero connected edges."
+            )
 
         # Connect the MPS tensors to the gate edges
         if indexA < indexB:
@@ -257,7 +295,9 @@ class MPS:
         right_gate_edge = gate.get_edge(3)
 
         # Contract the tensors in the MPS
-        new_node = tn.contract_between(self._nodes[indexA], self._nodes[indexB], name="new_mps_tensor")
+        new_node = tn.contract_between(
+            self._nodes[indexA], self._nodes[indexB], name="new_mps_tensor"
+        )
 
         # Flatten the two edges from the MPS node to the gate node
         node_gate_edge = tn.flatten_edges_between(new_node, gate)
@@ -287,8 +327,16 @@ class MPS:
         right_free_edge = right_gate_edge
 
         # Group the left (un)connected and right (un)connected edges
-        left_edges = [edge for edge in (left_free_edge, left_connected_edge) if edge is not None]
-        right_edges = [edge for edge in (right_free_edge, right_connected_edge) if edge is not None]
+        left_edges = [
+            edge
+            for edge in (left_free_edge, left_connected_edge)
+            if edge is not None
+        ]
+        right_edges = [
+            edge
+            for edge in (right_free_edge, right_connected_edge)
+            if edge is not None
+        ]
 
         # ================================================
         # Do the SVD to split the single MPS node into two
@@ -374,12 +422,16 @@ class MPS:
     def sweep_cnots_left_to_right(self, keep: Optional[int] = None) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from left to right."""
         for i in range(0, self._nqubits - 1, 2):
-            self.cnot(i, i + 1, keep_left_canonical=True, max_singular_values=keep)
+            self.cnot(
+                i, i + 1, keep_left_canonical=True, max_singular_values=keep
+            )
 
     def sweep_cnots_right_to_left(self, keep: Optional[int] = None) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from right to left."""
         for i in range(self._nqubits - 2, 0, -2):
-            self.cnot(i - 1, i, keep_left_canonical=False, max_singular_values=keep)
+            self.cnot(
+                i - 1, i, keep_left_canonical=False, max_singular_values=keep
+            )
 
     def swap(self, a: int, b: int, **kwargs) -> None:
         """Applies a SWAP gate between qubits indexed `a` and `b`."""

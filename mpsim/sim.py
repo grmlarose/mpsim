@@ -6,7 +6,12 @@ from typing import Union
 from mpsim import MPS
 
 
-def simulate(nqubits: int, depth: int, keep: Union[None, int, str], verbose: bool = False) -> MPS:
+def simulate(
+    nqubits: int,
+    depth: int,
+    keep: Union[None, int, str],
+    verbose: bool = False,
+) -> MPS:
     """Simulates a Waintall circuit using MPS for a given number of qubits and depth.
 
     Args:

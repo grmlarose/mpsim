@@ -10,17 +10,19 @@ from scipy.stats import unitary_group
 import tensornetwork as tn
 
 # Common single qubit states as np.ndarray objects
-zero_state = np.array([1., 0.], dtype=np.complex64)
-one_state = np.array([0., 1.], dtype=np.complex64)
-plus_state = 1. / np.sqrt(2) * (zero_state + one_state)
+zero_state = np.array([1.0, 0.0], dtype=np.complex64)
+one_state = np.array([0.0, 1.0], dtype=np.complex64)
+plus_state = 1.0 / np.sqrt(2) * (zero_state + one_state)
 
 
 # Common single qubit gates as np.ndarray objects
-_hmatrix = 1 / np.sqrt(2) * np.array([[1., 1.], [1., -1.]], dtype=np.complex64)
-_imatrix = np.array([[1., 0.], [0., 1.]], dtype=np.complex64)
-_xmatrix = np.array([[0., 1.], [1., 0.]], dtype=np.complex64)
-_ymatrix = np.array([[0., -1j], [1j, 0.]], dtype=np.complex64)
-_zmatrix = np.array([[1., 0.], [0., -1.]], dtype=np.complex64)
+_hmatrix = (
+    1 / np.sqrt(2) * np.array([[1.0, 1.0], [1.0, -1.0]], dtype=np.complex64)
+)
+_imatrix = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.complex64)
+_xmatrix = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.complex64)
+_ymatrix = np.array([[0.0, -1j], [1j, 0.0]], dtype=np.complex64)
+_zmatrix = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=np.complex64)
 
 
 # Common single qubit gates as tn.Node objects
@@ -61,22 +63,32 @@ def rgate(seed: Optional[int] = None):
     mz = np.cos(alpha)
 
     # Get the unitary
-    unitary = expm(-1j * theta * (mx * _xmatrix + my * _ymatrix * mz * _zmatrix))
+    unitary = expm(
+        -1j * theta * (mx * _xmatrix + my * _ymatrix * mz * _zmatrix)
+    )
 
     # TODO: Note to Guifre diagonal elements of this unitary are always real, and off-diagonal elements are imaginary
     return tn.Node(unitary)
 
 
 # Common two qubit gates as np.ndarray objects
-_cnot_matrix = np.array([[1., 0., 0., 0.],
-                         [0., 1., 0., 0.],
-                         [0., 0., 0., 1.],
-                         [0., 0., 1., 0.]])
+_cnot_matrix = np.array(
+    [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0, 0.0],
+    ]
+)
 _cnot_matrix = np.reshape(_cnot_matrix, newshape=(2, 2, 2, 2))
-_swap_matrix = np.array([[1., 0., 0., 0.],
-                         [0., 0., 1., 0.],
-                         [0., 1., 0., 0.],
-                         [0., 0., 0., 1.]])
+_swap_matrix = np.array(
+    [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
 _swap_matrix = np.reshape(_swap_matrix, newshape=(2, 2, 2, 2))
 
 
