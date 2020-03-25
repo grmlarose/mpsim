@@ -595,12 +595,11 @@ def test_qubit_hopping_left_to_right_and_back():
 @pytest.mark.parametrize(["left"], [[True], [False]])
 def test_cnot_truncation_two_qubits_product(left):
     """Tests applying a CNOT with truncation on a product state."""
-    for maxsvals in range(1, 5):
-        mps = MPS(nqubits=2)
-        mps.x(0)
-        mps.cnot(0, 1, max_singular_values=maxsvals, keep_left_canonical=left)
-        correct = np.array([0.0, 0.0, 0.0, 1.0])
-        assert np.array_equal(mps.wavefunction, correct)
+    mps = MPS(nqubits=2)
+    mps.x(0)
+    mps.cnot(0, 1, max_singular_values=0.5, keep_left_canonical=left)
+    correct = np.array([0.0, 0.0, 0.0, 1.0])
+    assert np.array_equal(mps.wavefunction, correct)
 
 
 def test_cnot_truncation_on_bell_state():
@@ -608,14 +607,14 @@ def test_cnot_truncation_on_bell_state():
     # Test with truncation
     mps = MPS(nqubits=2)
     mps.h(0)
-    mps.cnot(0, 1, max_singular_values=1)
+    mps.cnot(0, 1, fraction=0.5)
     correct = np.array([1 / np.sqrt(2), 0.0, 0.0, 0.0])
     assert np.allclose(mps.wavefunction, correct)
 
     # Test keeping all singular values ==> Bell state
     mps = MPS(nqubits=2)
     mps.h(0)
-    mps.cnot(0, 1, max_singular_values=2)
+    mps.cnot(0, 1, fraction=1)
     correct = np.array([1 / np.sqrt(2), 0.0, 0.0, 1 / np.sqrt(2)])
     assert np.allclose(mps.wavefunction, correct)
 
@@ -623,14 +622,14 @@ def test_cnot_truncation_on_bell_state():
 def test_bond_dimension_doubles_two_qubit_gate():
     """Tests that the bond dimension doubles after applying a two-qubit gate to a product state."""
     mps = MPS(nqubits=2)
-    assert mps.bond_dimension_of(0) == 1
+    assert mps.get_bond_dimension_of(0) == 1
     mps.h(0)
-    assert mps.bond_dimension_of(0) == 1
+    assert mps.get_bond_dimension_of(0) == 1
     mps.cnot(0, 1)
     assert mps.is_valid()
-    assert mps.bond_dimension_of(0) == 2
+    assert mps.get_bond_dimension_of(0) == 2
     mps.cnot(0, 1)
-    assert mps.bond_dimension_of(0) == 2
+    assert mps.get_bond_dimension_of(0) == 2
 
 
 def test_keep_half_bond_dimension_singular_values():
@@ -640,10 +639,10 @@ def test_keep_half_bond_dimension_singular_values():
     assert mps.get_bond_dimensions() == [1, 1, 1]
     assert mps.get_max_bond_dimensions() == [2, 4, 2]
     
-    # Apply a two qubit gate keeping all singular values
+    # Apply a two qubit gate explicitly keeping all singular values
     mps.r(-1)
     mps.apply_two_qubit_gate(
-        cnot(), 0, 1, max_singular_values="all"
+        cnot(), 0, 1, fraction=1,
     )
     assert mps.get_bond_dimensions() == [2, 1, 1]
     
@@ -655,7 +654,7 @@ def test_keep_half_bond_dimension_singular_values():
     # Apply a two qubit gate keeping half the singular values
     mps.r(-1)
     mps.apply_two_qubit_gate(
-        cnot(), 0, 1, max_singular_values="half"
+        cnot(), 0, 1, fraction=0.5
     )
     assert mps.get_bond_dimensions() == [1, 1, 1]
     
