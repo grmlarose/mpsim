@@ -22,6 +22,7 @@ def test_seed():
     wf1 = simulate(n, d, f, seed=seed).wavefunction
     wf2 = simulate(n, d, f, seed=seed).wavefunction
     wf3 = simulate(n, d, f, seed=1).wavefunction
+    assert wf1 is not wf2
     assert np.allclose(wf1, wf2)
     assert not np.allclose(wf1, wf3)
 
