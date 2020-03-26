@@ -287,6 +287,8 @@ class MPS:
                                  If False, S is grouped with U so that the new left tensor is U @ S and
                                  the new right tensor is Vdag.
             fraction (float): Number of singular values to keep expressed as a fraction of the maximum bond dimension. Must be between 0 and 1, inclusive.
+            
+            maxsvals (int): Number of singular values to keep for all two-qubit gates.
         """
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
@@ -384,6 +386,12 @@ class MPS:
             keep_left_canonical = kwargs.get("keep_left_canonical")
         else:
             keep_left_canonical = True
+        
+        if "fraction" in kwargs.keys() and "maxsvals" in kwargs.keys():
+            raise ValueError(
+                "Only one of (fraction, maxsvals) can be provided as kwargs."
+            )
+
         if "fraction" in kwargs.keys():
             fraction = kwargs.get("fraction")
             if not (0 <= fraction <= 1):
@@ -391,6 +399,14 @@ class MPS:
             maxsvals = int(round(fraction * self.get_max_bond_dimension_of(min(indexA, indexB))))
         else:
             maxsvals = None  # Keeps all singular values
+
+        if "maxsvals" in kwargs.keys():
+            maxsvals = int(kwargs.get("maxsvals"))
+        else:
+            maxsvals = None  # Keeps all singular values
+            
+        # Debug
+        print(f"In 2Q gate, keeping {maxsvals} singular values.")
 
         u, s, vdag, truncated_svals = tn.split_node_full_svd(
             new_node,
