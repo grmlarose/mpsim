@@ -382,6 +382,7 @@ class MPS:
         # Do the SVD to split the single MPS node into two
         # ================================================
         # Options for canonicalization + truncation
+        print("In TWOQ, my kwargs are:", kwargs)
         if "keep_left_canonical" in kwargs.keys():
             keep_left_canonical = kwargs.get("keep_left_canonical")
         else:
@@ -480,18 +481,18 @@ class MPS:
         """Applies a CNOT gate with qubit indexed `a` as control and qubit indexed `b` as target."""
         self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
 
-    def sweep_cnots_left_to_right(self, fraction: Optional[float] = None) -> None:
+    def sweep_cnots_left_to_right(self, **kwargs) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from left to right."""
         for i in range(0, self._nqubits - 1, 2):
             self.cnot(
-                i, i + 1, keep_left_canonical=True, fraction=fraction
+                i, i + 1, keep_left_canonical=True, **kwargs
             )
 
-    def sweep_cnots_right_to_left(self, fraction: Optional[float] = None) -> None:
+    def sweep_cnots_right_to_left(self, **kwargs) -> None:
         """Applies a layer of CNOTs between adjacent qubits going from right to left."""
         for i in range(self._nqubits - 2, 0, -2):
             self.cnot(
-                i - 1, i, keep_left_canonical=False, fraction=fraction
+                i - 1, i, keep_left_canonical=False, **kwargs
             )
 
     def swap(self, a: int, b: int, **kwargs) -> None:
