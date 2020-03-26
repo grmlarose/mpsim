@@ -703,3 +703,14 @@ def test_norm_decreases_after_two_qubit_gate_with_truncation():
     mps.cnot(0, 1, maxsvals=1)
     assert mps.norm() < 1.0  # TODO: Check it agrees with norm from wavefunction
 
+
+def test_norm_is_zero_after_throwing_away_all_singular_values():
+    """Does a two-qubit gate and throws away all singular values,
+    checks that the norm is zero.
+    """
+    mps = MPS(nqubits=2)
+    assert mps.norm() == 1
+    mps.h(0)
+    mps.cnot(0, 1, maxsvals=0)
+    assert mps.norm() == 0
+
