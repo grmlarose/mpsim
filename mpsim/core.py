@@ -198,8 +198,7 @@ class MPS:
             raise ValueError("Invalid MPS.")
 
         return np.reshape(fin.tensor, newshape=(2 ** self._nqubits))
-    
-    @property
+
     def norm(self) -> float:
         """Returns the norm of the MPS computed by contraction."""
         a = self.get_nodes(copy=True)
@@ -434,7 +433,7 @@ class MPS:
         self._nodes[left_index] = new_left
         self._nodes[right_index] = new_right
         
-        self._fidelities.append(self.norm)
+        self._fidelities.append(self.norm())
 
     def x(self, index: int) -> None:
         """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
