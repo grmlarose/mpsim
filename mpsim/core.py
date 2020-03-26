@@ -204,16 +204,8 @@ class MPS:
         """Returns the norm of the MPS computed by contraction."""
         a = self.get_nodes(copy=True)
         b = self.get_nodes(copy=True)
-        
-        print("b before conj")
-        print(b)
-        
-        print("\n\nb after conj")
-        
         for n in b:
             n.set_tensor(np.conj(n.tensor))
-        
-        print(b)
 
         for i in range(self._nqubits):
             tn.connect(a[i].get_all_dangling().pop(), b[i].get_all_dangling().pop())
