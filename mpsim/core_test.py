@@ -658,3 +658,31 @@ def test_keep_half_bond_dimension_singular_values():
     )
     assert mps.get_bond_dimensions() == [1, 1, 1]
     
+    
+def test_norm_two_qubit_product_simple():
+    """Tests norm of a two-qubit product state MPS."""
+    mps = MPS(nqubits=2)
+    assert mps.norm == 1
+    
+    # Make sure the wavefunction hasn't changed
+    assert np.array_equal(mps.wavefunction, [1, 0, 0, 0])
+
+
+@pytest.mark.parametrize(["n"], 
+                          [[3], [4], [5], [6], [7], [8], [9], [10]]
+                         )
+def test_norm_nqubit_product_state(n):
+    """Tests n qubit MPS in the all |0> state have norm 1."""
+    assert MPS(nqubits=n).norm == 1
+
+
+def test_norm_after_local_rotations():
+    """Applies local rotations (single qubit gates) to an MPS and ensures
+    the norm stays one.
+    """
+    mps = MPS(nqubits=10)
+    assert mps.norm == 1
+    mps.h(-1)
+    assert np.isclose(mps.norm, 1.)
+
+

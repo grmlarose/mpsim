@@ -168,6 +168,14 @@ class MPS:
             copy: If true, a copy of the node is returned, else the actual node is returned.
         """
         return self.get_nodes(copy)[i]
+    
+    def get_free_edge_of(self, index: int) -> tn.Edge:
+        """Returns the free (dangling) edge of a node with specified index.
+        
+        Args:
+            index: Specifies the node.
+        """
+        return self._nodes[index].get_all_dangling().pop()
 
     @property
     def wavefunction(self) -> np.array:
@@ -186,6 +194,28 @@ class MPS:
             raise ValueError("Invalid MPS.")
 
         return np.reshape(fin.tensor, newshape=(2 ** self._nqubits))
+    
+    @property
+    def norm(self) -> float:
+        """Returns the norm of the MPS computed by contraction."""
+        a = self.get_nodes(copy=True)
+        b = self.get_nodes(copy=True)
+
+        for i in range(self._nqubits):
+            tn.connect(a[i].get_all_dangling().pop(), b[i].get_all_dangling().pop())
+
+        for i in range(self._nqubits - 1):
+            # TODO: Optimize by flattening edges
+            mid = tn.contract_between(a[i], b[i])
+            new = tn.contract_between(mid, a[i + 1])
+            a[i + 1] = new
+
+        fin = tn.contract_between(a[-1], b[-1])
+        assert len(fin.edges) == 0  # Debug check
+        assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
+        return np.real(fin.tensor)
+        
+        
 
     def apply_one_qubit_gate(self, gate: tn.Node, index: int) -> None:
         """Modifies the input mpslist in place by applying a single qubit gate to a specified node.
