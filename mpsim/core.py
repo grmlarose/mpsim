@@ -169,13 +169,16 @@ class MPS:
         """
         return self.get_nodes(copy)[i]
     
-    def get_free_edge_of(self, index: int) -> tn.Edge:
+    # TODO: Add unit tests for!
+    def get_free_edge_of(self, index: int, copy: bool = True) -> tn.Edge:
         """Returns the free (dangling) edge of a node with specified index.
         
         Args:
             index: Specifies the node.
+            copy: If True, returns a copy of the edge.
+                  If False, returns the actual edge.
         """
-        return self._nodes[index].get_all_dangling().pop()
+        return self.get_node(index, copy).get_all_dangling().pop()
 
     @property
     def wavefunction(self) -> np.array:
