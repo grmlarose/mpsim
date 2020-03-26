@@ -403,8 +403,6 @@ class MPS:
 
         if "maxsvals" in kwargs.keys():
             maxsvals = int(kwargs.get("maxsvals"))
-        else:
-            maxsvals = None  # Keeps all singular values
             
         # Debug
         print(f"In 2Q gate, keeping {maxsvals} singular values.")
