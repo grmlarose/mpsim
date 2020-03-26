@@ -686,3 +686,11 @@ def test_norm_after_local_rotations():
     assert np.isclose(mps.norm, 1.)
 
 
+def test_norm_after_two_qubit_gate():
+    """Tests computing the norm of an MPS after a two-qubit gate."""
+    mps = MPS(nqubits=2)
+    assert mps.norm == 1
+    mps.h(0)
+    mps.cnot(0, 1)
+    assert np.isclose(mps.norm, 1.0)
+

@@ -400,7 +400,6 @@ class MPS:
         
         # Store the truncated infidelities
         self._infidelities.append(np.real(sum(np.conj(x) * x for x in truncated_svals)))
-        self._fidelities.append(self.norm)
 
         # Contract the tensors to keep left or right canonical form
         if keep_left_canonical:
@@ -416,6 +415,8 @@ class MPS:
 
         self._nodes[left_index] = new_left
         self._nodes[right_index] = new_right
+        
+        self._fidelities.append(self.norm)
 
     def x(self, index: int) -> None:
         """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
