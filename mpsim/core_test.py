@@ -694,3 +694,12 @@ def test_norm_after_two_qubit_gate():
     mps.cnot(0, 1)
     assert np.isclose(mps.norm(), 1.0)
 
+
+def test_norm_decreases_after_two_qubit_gate_with_truncation():
+    """Tests that the norm of an MPS decreases when we throw away svals."""
+    mps = MPS(nqubits=2)
+    assert mps.norm() == 1
+    mps.h(0)
+    mps.cnot(0, 1, maxsvals=1)
+    assert mps.norm() < 1.0  # TODO: Check it agrees with norm from wavefunction
+
