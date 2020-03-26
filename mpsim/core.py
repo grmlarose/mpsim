@@ -217,7 +217,6 @@ class MPS:
 
         fin = tn.contract_between(a[-1], b[-1])
         assert len(fin.edges) == 0  # Debug check
-        print("Norm of MPS:", fin.tensor)
         assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
         return abs(fin.tensor)
         
@@ -383,7 +382,6 @@ class MPS:
         # Do the SVD to split the single MPS node into two
         # ================================================
         # Options for canonicalization + truncation
-        print("In TWOQ, my kwargs are:", kwargs)
         if "keep_left_canonical" in kwargs.keys():
             keep_left_canonical = kwargs.get("keep_left_canonical")
         else:
@@ -404,9 +402,6 @@ class MPS:
 
         if "maxsvals" in kwargs.keys():
             maxsvals = int(kwargs.get("maxsvals"))
-            
-        # Debug
-        print(f"In 2Q gate, keeping {maxsvals} singular values.")
 
         u, s, vdag, truncated_svals = tn.split_node_full_svd(
             new_node,
