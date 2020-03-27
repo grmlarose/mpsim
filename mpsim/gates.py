@@ -51,8 +51,14 @@ def hgate() -> tn.Node:
     return tn.Node(deepcopy(_hmatrix), name="hgate")
 
 
-def rgate(seed: Optional[int] = None, small_angles: bool = False):
-    """Returns the random single qubit gate described in https://arxiv.org/abs/2002.07730."""
+def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
+    """Returns the random single qubit gate described in https://arxiv.org/abs/2002.07730.
+    
+    Args:
+        seed: Seed for random number generator.
+        angle_scale: Floating point value to scale angles by. Default 1.
+    
+    """
     if seed:
         np.random.seed(seed)
 
@@ -62,9 +68,7 @@ def rgate(seed: Optional[int] = None, small_angles: bool = False):
     my = np.sin(alpha) * np.sin(phi)
     mz = np.cos(alpha)
     
-    # Option to keep single qubit rotations close to identity
-    if small_angles:
-        theta *= 1e-3
+    theta *= angle_scale
 
     # Get the unitary
     unitary = expm(
