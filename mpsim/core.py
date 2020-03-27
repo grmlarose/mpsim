@@ -456,7 +456,7 @@ class MPS:
         else:
             self.apply_one_qubit_gate(hgate(), index)
 
-    def r(self, index, seed: Optional[int] = None) -> None:
+    def r(self, index, seed: Optional[int] = None, small_angles: bool = False) -> None:
         """Applies a random rotation to the qubit indexed by `index`.
 
         If index == -1, random rotations are applied to all qubits. (Different rotations.)
@@ -464,12 +464,13 @@ class MPS:
         Args:
             index: Index of tensor to apply rotation to.
             seed: Seed for random number generator.
+            small_angles: Option to make gates close to identity.
         """
         if index == -1:
             for i in range(self._nqubits):
-                self.apply_one_qubit_gate(rgate(seed), i)
+                self.apply_one_qubit_gate(rgate(seed, small_angles), i,)
         else:
-            self.apply_one_qubit_gate(rgate(seed), index)
+            self.apply_one_qubit_gate(rgate(seed, small_angles), index)
 
     def cnot(self, a: int, b: int, **kwargs) -> None:
         """Applies a CNOT gate with qubit indexed `a` as control and qubit indexed `b` as target."""
