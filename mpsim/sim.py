@@ -36,7 +36,7 @@ def simulate(
 
     if verbose:
         print("=" * 40)
-        print("Simulating Waintal circuit on {nqubits} qubits")
+        print(f"Simulating Waintal circuit on {nqubits} qubits")
         print("=" * 40)
 
     start = time.time()
