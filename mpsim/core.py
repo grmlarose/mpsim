@@ -219,8 +219,6 @@ class MPS:
         assert len(fin.edges) == 0  # Debug check
         assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
         return abs(fin.tensor)
-        
-        
 
     def apply_one_qubit_gate(self, gate: tn.Node, index: int) -> None:
         """Modifies the input mpslist in place by applying a single qubit gate to a specified node.
