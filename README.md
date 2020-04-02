@@ -32,7 +32,7 @@ The following program initializes an MPS in the |00> state and prepares a Bell s
 ```python
 import mpsim
 
-mps = mps.MPS(nqubits=2)
+mps = mpsim.MPS(nqubits=2)
 mps.h(0)
 mps.cnot(0, 1)
 
@@ -49,7 +49,7 @@ The following program prepares the same Bell state but only keeps one singular v
 ```python
 import mpsim
 
-mps = mps.MPS(nqubits=2)
+mps = mpsim.MPS(nqubits=2)
 mps.h(0)
 mps.cnot(0, 1, maxsvals=1)
 
