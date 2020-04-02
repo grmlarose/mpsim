@@ -12,7 +12,7 @@ class MPS:
     """Matrix Product State (MPS) for simulating (noisy) quantum circuits."""
 
     def __init__(self, nqubits: int, tensor_prefix: str = "q") -> None:
-        """Returns a list of tensors in an MPS which define the all zero state on n qubits.
+        """Initializes an MPS of qubits in the all |0> state.
 
         The MPS has the following structure (shown for six qubits):
 
@@ -23,7 +23,7 @@ class MPS:
 
         Args:
             nqubits: Number of qubits in the all zero state.
-            tensor_prefix: Prefix for tensors. The full name is prefix + numerical index, numbered from left to right starting with zero.
+            tensor_prefix: Prefix for tensor names. The full name is prefix + numerical index, numbered from left to right starting with zero.
         """
         if nqubits < 2:
             raise ValueError(
@@ -221,7 +221,7 @@ class MPS:
         return abs(fin.tensor)
 
     def apply_one_qubit_gate(self, gate: tn.Node, index: int) -> None:
-        """Modifies the input mpslist in place by applying a single qubit gate to a specified node.
+        """Modifies MPS in place by applying a single qubit gate to a specified node.
 
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
@@ -264,7 +264,7 @@ class MPS:
     def apply_two_qubit_gate(
         self, gate: tn.Node, indexA: int, indexB: int, **kwargs
     ) -> None:
-        """Modifies the input mpslist in place by applying a two qubit gate to the specified nodes.
+        """Modifies the MPS in place by applying a two qubit gate to the specified nodes.
 
         Args:
             gate: Two qubit gate to apply.
