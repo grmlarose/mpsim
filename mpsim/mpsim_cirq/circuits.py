@@ -1,11 +1,12 @@
 """Defines mpsim circuits as extensions of Cirq circuits."""
 
+from copy import deepcopy
 from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 
 import cirq
-from tensornetwork import Node
+from tensornetwork import copy, Node
 
 
 class CannotConvertToMPSOperation(Exception):
@@ -13,7 +14,7 @@ class CannotConvertToMPSOperation(Exception):
 
 
 class MPSOperation:
-    """Defines an operation for MPS Simulators."""
+    """Defines an operation which an MPS can execute."""
     def __init__(
             self,
             node: Node,
@@ -40,13 +41,13 @@ class MPSOperation:
     @staticmethod
     def from_gate_operation(
             operation: cirq.GateOperation,
-            qudit_to_indices_map: Dict[cirq.Qid, int]
+            qudit_to_index_map: Dict[cirq.Qid, int]
     ) -> 'MPSOperation':
         """Constructs an MPS Operation from a gate operation.
 
         Args:
             operation: A valid cirq.GateOperation or any child class.
-            qudit_to_indices_map: Dictionary to map qubits to MPS indices.
+            qudit_to_index_map: Dictionary to map qubits to MPS indices.
 
         Raises:
             CannotConvertToMPSOperation
@@ -55,7 +56,7 @@ class MPSOperation:
         num_qudits = len(operation.qubits)
         qudit_dimension = 2
         qudit_indices = tuple(
-            [qudit_to_indices_map[qudit] for qudit in operation.qubits]
+            [qudit_to_index_map[qudit] for qudit in operation.qubits]
         )
 
         if not operation._has_unitary_():
@@ -88,7 +89,8 @@ class MPSOperation:
     @property
     def node(self) -> Node:
         """Returns the node of the MPS Operation."""
-        return self._node
+        node_dict, _ = copy([self._node])
+        return node_dict[self._node]
 
     def tensor(self, square: bool = True) -> np.ndarray:
         """Returns the tensor of the MPS Operation.
@@ -98,7 +100,7 @@ class MPSOperation:
                     dim is the qudit dimension raised to the number of qudits
                     that the MPS Operator acts on.
         """
-        tensor = self._node.tensor
+        tensor = deepcopy(self._node.tensor)
         if square:
             dim = self._qudit_dimension ** self.num_qudits
             tensor = np.reshape(
@@ -110,20 +112,18 @@ class MPSOperation:
         """Returns True if the MPS Operation is valid, else False.
 
         A valid MPS Operation meets the following criteria:
-            (1) Tensor of gate is d x d where d = qudit dimension.
+            (1) Tensor of gate has shape (d, ..., d) where d is the qudit
+                dimension and there are d^num_qudits entries.
             (2) Tensor has 2n free edges where n = number of qudits.
             (3) All tensor edges are free edges.
         """
         d = self._qudit_dimension
         if not self._node.tensor.shape == tuple([d] * d ** self.num_qudits):
             return False
-
         if not len(self._node.get_all_edges()) == 2 * self.num_qudits:
             return False
-
         if self._node.has_nondangling_edge():
             return False
-
         return True
 
     def is_unitary(self) -> bool:
@@ -146,7 +146,7 @@ class MPSOperation:
         return self.num_qudits == 2
 
     def __str__(self):
-        return f"Tensor {self._node.name} on qudits {self._qudit_indices}."
+        return f"Tensor {self._node.name} on qudit(s) {self._qudit_indices}."
 
 
 # TODO: Is this class necessary? The main functionality needed is to convert
@@ -168,53 +168,24 @@ class MPSimCircuit(cirq.Circuit):
         """
         # TODO: Check that device is one-dimensional, as required for MPS.
         super().__init__(cirq_circuit, device=device)
-        self._mps_operations = self._translate_to_mps_operations()
-        self._index_for_qudit = {
-            i: qubit for i, qubit in enumerate(sorted(self.all_qubits()))
+        self._qudit_to_index_map = {
+            qubit: i for i, qubit in enumerate(sorted(self.all_qubits()))
         }
-
-    def _indices_for_qudits(self, qudits: Iterable[cirq.Qid]):
-        """Yields a generator of indices for the given qubits.
-
-        Args:
-            qudits: Qudits in the circuit to get the indices for.
-        """
-        for qudit in qudits:
-            yield self._index_for_qudit[qudit]
-
-    def _convert_gate_operation_to_mps_operation(
-            self,
-            operation: cirq.GateOperation
-    ) -> MPSOperation:
-        """Converts a gate operation to an MPS operation and returns it.
-
-        Args:
-            operation: A valid cirq.GateOperation, or any child classes.
-        """
-        num_qudits = len(operation.qubits)
-        qudit_dimension = 2
-        qudit_indices = self._indices_for_qudits(operation.qubits)
-
-        if not operation._has_unitary_():
-            raise CannotConvertToMPSOperation(
-                f"Cannot convert operation {operation} into an MPS Operation"
-                " because the operation does not have a unitary."
-            )
-        tensor = operation._unitary_()
-        tensor = np.reshape(tensor, newshape=[qudit_dimension] * num_qudits)
-        node = Node(tensor)
-
-        return MPSOperation(node, tuple(qudit_indices), qudit_dimension)
+        print("Qudit to index map:", self._qudit_to_index_map)
+        self._mps_operations = self._translate_to_mps_operations()
 
     # TODO: Should this keep the same moment/operation circuit structure?
     #  Or should it just be one-dimensional?
     def _translate_to_mps_operations(self) -> List[MPSOperation]:
-        """Appends all operations in a circuit to MPS operations."""
+        """Appends all operations in a circuit to MPS Operations."""
         all_mps_operations = []
         for (moment_index, moment) in enumerate(self):
             for operation in moment:
                 all_mps_operations.append(
-                    self._convert_gate_operation_to_mps_operation(operation)
+                    MPSOperation.from_gate_operation(
+                        operation,
+                        self._qudit_to_index_map
+                    )
                 )
         return all_mps_operations
 
@@ -224,3 +195,5 @@ class MPSimCircuit(cirq.Circuit):
     #  or
     #  mpsim_circuit.insert([some gates at some location])
     #  Should update mpsim_circuit._mpsim_operations
+    #  Otherwise, a new MPSimCircuit will need to be created before every
+    #  circuit simulation.
