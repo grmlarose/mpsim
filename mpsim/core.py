@@ -283,20 +283,27 @@ class MPS:
 
         Args:
             gate: Two qubit gate to apply. See Notes for the edge convention.
-            indexA: Index of first tensor (qubit) in the mpslist to apply the single qubit gate to.
-            indexB: Index of second tensor (qubit) in the mpslist to apply the single qubit gate to.
+            indexA: Index of first tensor (qubit) in the mpslist to apply the
+                     single qubit gate to.
+            indexB: Index of second tensor (qubit) in the mpslist to apply the
+                     single qubit gate to.
 
         Keyword Arguments:
-            keep_left_canonical: After performing an SVD on the new node to obtain U, S, Vdag,
-                                 S is grouped with Vdag to form the new right tensor. That is,
-                                 the left tensor is U, and the right tensor is S @ Vdag. This keeps
-                                 the MPS in left canonical form if it already was in left canonical form.
+            keep_left_canonical: After performing an SVD on the new node to
+                obtain U, S, Vdag, S is grouped with Vdag to form the
+                new right tensor. That is, the left tensor is U, and the
+                right tensor is S @ Vdag. This keeps the MPS in left canonical
+                form if it already was in left canonical form.
 
-                                 If False, S is grouped with U so that the new left tensor is U @ S and
-                                 the new right tensor is Vdag.
-            fraction (float): Number of singular values to keep expressed as a fraction of the maximum bond dimension. Must be between 0 and 1, inclusive.
-            
-            maxsvals (int): Number of singular values to keep for all two-qubit gates.
+                If False, S is grouped with U so that the new left tensor
+                 is U @ S and the new right tensor is Vdag.
+
+            maxsvals (int): Number of singular values to keep
+                for all two-qubit gates.
+
+            fraction (float): Number of singular values to keep expressed as a
+                fraction of the maximum bond dimension.
+                Must be between 0 and 1, inclusive.
 
         Notes:
             Gate edge convention:
@@ -325,7 +332,8 @@ class MPS:
                 "Indices must be for adjacent tensors (must differ by one)."
             )
 
-        if len(gate.get_all_dangling()) != 4 or len(gate.get_all_nondangling()) != 0:
+        if (len(gate.get_all_dangling()) != 4
+                or len(gate.get_all_nondangling()) != 0):
             raise ValueError(
                 "Two qubit gate must have four free edges"
                 " and zero connected edges."
@@ -340,10 +348,10 @@ class MPS:
 
         _ = tn.connect(
             list(self._nodes[indexA].get_all_dangling())[0], gate.get_edge(0)
-        )  # TODO: Which gate edge should be used here?
+        )
         _ = tn.connect(
             list(self._nodes[indexB].get_all_dangling())[0], gate.get_edge(1)
-        )  # TODO: Which gate edge should be used here?
+        )
 
         # Store the free edges of the gate, using the docstring edge convention
         left_gate_edge = gate.get_edge(2)
@@ -477,11 +485,11 @@ class MPS:
         else:
             self.apply_one_qubit_gate(hgate(), index)
 
-    def r(self, index, seed: Optional[int] = None, angle_scale: float = 1.0) -> None:
+    def r(self, index, seed: Optional[int] = None,
+          angle_scale: float = 1.0) -> None:
         """Applies a random rotation to the qubit indexed by `index`.
 
-        If index == -1, random rotations are applied to all qubits. (Different rotations.)
-
+        If index == -1, (different) random rotations are applied to all qubits.
         Args:
             index: Index of tensor to apply rotation to.
             seed: Seed for random number generator.
