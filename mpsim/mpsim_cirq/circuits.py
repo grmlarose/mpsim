@@ -1,6 +1,6 @@
 """Defines mpsim circuits as extensions of Cirq circuits."""
 
-from typing import Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 
@@ -17,10 +17,10 @@ class MPSOperation:
     def __init__(
             self,
             node: Node,
-            qudit_indices: Tuple[int],
+            qudit_indices: Tuple[int, ...],
             qudit_dimension: int = 2
     ) -> None:
-        """Constructor for an MPS Instruction.
+        """Constructor for an MPS Operation.
 
         Args:
             node: TensorNetwork node object representing a gate to apply.
@@ -37,8 +37,41 @@ class MPSOperation:
         self._qudit_indices = tuple(qudit_indices)
         self._qudit_dimension = int(qudit_dimension)
 
+    @staticmethod
+    def from_gate_operation(
+            operation: cirq.GateOperation,
+            qudit_to_indices_map: Dict[cirq.Qid, int]
+    ) -> 'MPSOperation':
+        """Constructs an MPS Operation from a gate operation.
+
+        Args:
+            operation: A valid cirq.GateOperation or any child class.
+            qudit_to_indices_map: Dictionary to map qubits to MPS indices.
+
+        Raises:
+            CannotConvertToMPSOperation
+                If the gate operation does not have a _unitary_ method.
+        """
+        num_qudits = len(operation.qubits)
+        qudit_dimension = 2
+        qudit_indices = tuple(
+            [qudit_to_indices_map[qudit] for qudit in operation.qubits]
+        )
+
+        if not operation._has_unitary_():
+            raise CannotConvertToMPSOperation(
+                f"Cannot convert operation {operation} into an MPS Operation"
+                " because the operation does not have a unitary."
+            )
+        tensor = operation._unitary_()
+        tensor = np.reshape(
+            tensor, newshape=[qudit_dimension] * qudit_dimension**num_qudits
+        )
+        node = Node(tensor)
+        return MPSOperation(node, qudit_indices, qudit_dimension)
+
     @property
-    def qudit_indices(self) -> Tuple[int]:
+    def qudit_indices(self) -> Tuple[int, ...]:
         """Returns the indices of the qudits that the MPS Operation acts on."""
         return self._qudit_indices
 
@@ -52,6 +85,27 @@ class MPSOperation:
         """Returns the number of qubits the MPS Operation acts on."""
         return len(self._qudit_indices)
 
+    @property
+    def node(self) -> Node:
+        """Returns the node of the MPS Operation."""
+        return self._node
+
+    def tensor(self, square: bool = True) -> np.ndarray:
+        """Returns the tensor of the MPS Operation.
+
+        Args:
+            square: If True, the shape of the returned tensor is dim x dim where
+                    dim is the qudit dimension raised to the number of qudits
+                    that the MPS Operator acts on.
+        """
+        tensor = self._node.tensor
+        if square:
+            dim = self._qudit_dimension ** self.num_qudits
+            tensor = np.reshape(
+                tensor, newshape=(dim, dim)
+            )
+        return tensor
+
     def is_valid(self) -> bool:
         """Returns True if the MPS Operation is valid, else False.
 
@@ -61,7 +115,7 @@ class MPSOperation:
             (3) All tensor edges are free edges.
         """
         d = self._qudit_dimension
-        if not self._node.tensor.shape == tuple([self._qudit_dimension] * d):
+        if not self._node.tensor.shape == tuple([d] * d ** self.num_qudits):
             return False
 
         if not len(self._node.get_all_edges()) == 2 * self.num_qudits:
