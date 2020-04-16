@@ -176,15 +176,15 @@ class MPSimCircuit(cirq.Circuit):
         print("Qudit to index map:", self._qudit_to_index_map)
         self._mps_operations = self._translate_to_mps_operations()
 
-    def _resolve_parameters_(self, param_resolver: cirq.study.ParamResolver):
-        """Returns a circuit with all parameters resolved by the param_resolver.
-
-        Args:
-            param_resolver: Defines values for parameters in the circuit.
-        """
-        mpsim_circuit = super()._resolve_parameters_(param_resolver)
-        mpsim_circuit.device = self.device
-        return mpsim_circuit
+    # def _resolve_parameters_(self, param_resolver: cirq.study.ParamResolver):
+    #     """Returns a circuit with all parameters resolved by the param_resolver.
+    #
+    #     Args:
+    #         param_resolver: Defines values for parameters in the circuit.
+    #     """
+    #     mpsim_circuit = super()._resolve_parameters_(param_resolver)
+    #     mpsim_circuit.device = self.device
+    #     return mpsim_circuit
 
     # TODO: Should this keep the same moment/operation circuit structure?
     #  Or should it just be one-dimensional?
