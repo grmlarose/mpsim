@@ -13,6 +13,22 @@ from mpsim.mpsim_cirq.circuits import MPSimCircuit
 
 class MPSimulator(SimulatesFinalState):
 
+    def __init__(self, options: dict = {}):
+        """Initializes and MPS Simulator.
+
+        Args:
+            options: Dictionary of options for the simulator.
+
+            Valid options:
+                "maxsvals" (int): Number of singular values to keep after each
+                                  two qubit gate.
+
+                "fraction" (float): Number of singular values to keep expressed
+                                    as a fraction of the maximum bond dimension
+                                    for the given tensor.
+        """
+        self._options = options
+
     # def compute_amplitudes_sweep(
     #     self,
     #     program: Union[Circuit, MPSimCircuit],
@@ -74,6 +90,8 @@ class MPSimulator(SimulatesFinalState):
             # }
 
             mps = MPS(nqubits=len(solved_circuit.all_qubits()))
-            mps.apply_all_mps_operations(solved_circuit._mps_operations)
+            mps.apply_all_mps_operations(
+                solved_circuit._mps_operations, **self._options
+            )
             trial_results.append(mps)
         return trial_results
