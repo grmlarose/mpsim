@@ -83,6 +83,9 @@ def test_instantiate_empty_circuit():
     assert len(list(mpsim_circuit.all_operations())) == 0
 
 
+# TODO: A single qubit MPS should be invalid. (No error raised here because no
+#  MPS is ever created, only MPSOperations.
+#  To fix: Update MPS to allow for single qubit MPS (to simulate oneq circuits).
 def test_single_qubit_circuit_unconstrained_device():
     """Tests creating and MPSimCircuit and checks correctness of the
     MPS Operations in the circuit.
@@ -101,6 +104,20 @@ def test_single_qubit_circuit_unconstrained_device():
         assert np.allclose(gate_op._unitary_(), mps_op.tensor())
         assert mps_op.qudit_indices == (0,)
         assert mps_op.qudit_dimension == 2
+
+
+def test_mpsim_circuit_qubit_order():
+    for _ in range(20):
+        qreg = cirq.LineQubit.range(2)
+        gate_operations = [
+            cirq.ops.H.on(qreg[0]), cirq.ops.CNOT.on(*qreg)
+        ]
+        cirq_circuit = cirq.Circuit(gate_operations)
+
+        mpsim_circuit = MPSimCircuit(cirq_circuit)
+        assert mpsim_circuit._qudit_to_index_map == {
+            qreg[0]: 0, qreg[1]: 1
+        }
 
 
 def test_two_qubit_circuit_unconstrained_device():

@@ -171,7 +171,7 @@ class MPSimCircuit(cirq.Circuit):
         # TODO: Check that device is one-dimensional, as required for MPS.
         super().__init__(cirq_circuit, device=device)
         self._qudit_to_index_map = {
-            qubit: i for i, qubit in enumerate(self.all_qubits())
+            qubit: i for i, qubit in enumerate(sorted(self.all_qubits()))
         }
         print("Qudit to index map:", self._qudit_to_index_map)
         self._mps_operations = self._translate_to_mps_operations()
