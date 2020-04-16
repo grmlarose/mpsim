@@ -76,7 +76,7 @@ def test_mps_operation_from_gate_operation_zz_gate():
 
 
 def test_instantiate_empty_circuit():
-    """Tests instantiating an mpsim circuit."""
+    """Tests instantiating an mpsim circuit from an empty Cirq circuit."""
     cirq_circuit = cirq.Circuit()
     mpsim_circuit = MPSimCircuit(cirq_circuit)
     assert len(list(mpsim_circuit.all_qubits())) == 0
@@ -123,3 +123,32 @@ def test_two_qubit_circuit_unconstrained_device():
 
     assert mps_operations[0].qudit_indices == (0,)
     assert mps_operations[1].qudit_indices == (0, 1)
+
+
+def test_convert_and_simulate_circuit_two_qubits():
+    """Performs tests on the following.
+
+    1. Converting a Cirq circuit to an MPSimCircuit.
+    2. Applying MPS Operations in the MPSimCircuit to
+        an MPS starting in the all zero state, checking
+        for corrections.
+    """
+    # Define the Cirq circuit
+    qreg = cirq.LineQubit.range(2)
+    gate_operations = [
+        cirq.ops.H.on(qreg[0]), cirq.ops.CNOT.on(*qreg)
+    ]
+    cirq_circuit = cirq.Circuit(gate_operations)
+
+    # Convert to an MPSimCircuit
+    mpsim_circuit = MPSimCircuit(cirq_circuit)
+    mps_operations = mpsim_circuit._mps_operations
+
+    # Apply the MPSOperation's from the MPSimCircuit
+    mps = mpsim.MPS(nqubits=2)
+    for mps_op in mps_operations:
+        mps.apply_mps_operation(mps_op)
+
+    # Check correctness for the final wavefunction
+    correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 1.])
+    assert np.allclose(mps.wavefunction, correct)

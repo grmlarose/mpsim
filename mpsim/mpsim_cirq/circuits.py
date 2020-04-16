@@ -1,7 +1,7 @@
 """Defines mpsim circuits as extensions of Cirq circuits."""
 
 from copy import deepcopy
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -113,7 +113,7 @@ class MPSOperation:
 
         A valid MPS Operation meets the following criteria:
             (1) Tensor of gate has shape (d, ..., d) where d is the qudit
-                dimension and there are d^num_qudits entries.
+                dimension and there are d^num_qudits entries in the tuple.
             (2) Tensor has 2n free edges where n = number of qudits.
             (3) All tensor edges are free edges.
         """
@@ -158,21 +158,33 @@ class MPSimCircuit(cirq.Circuit):
     def __init__(
         self, 
         cirq_circuit: cirq.Circuit,
-        device: cirq.devices = cirq.devices.UNCONSTRAINED_DEVICE
+        device: cirq.devices = cirq.devices.UNCONSTRAINED_DEVICE,
+        qubit_order: cirq.ops.QubitOrder = cirq.ops.QubitOrder.DEFAULT
     ) -> None:
         """Constructor for MPSimCircuit.
 
         Args:
             cirq_circuit: Cirq circuit to create an MPS Sim circuit from.
             device: Device the circuit runs on.
+            qubit_order: Ordering of qubits.
         """
         # TODO: Check that device is one-dimensional, as required for MPS.
         super().__init__(cirq_circuit, device=device)
         self._qudit_to_index_map = {
-            qubit: i for i, qubit in enumerate(sorted(self.all_qubits()))
+            qubit: i for i, qubit in enumerate(self.all_qubits())
         }
         print("Qudit to index map:", self._qudit_to_index_map)
         self._mps_operations = self._translate_to_mps_operations()
+
+    def _resolve_parameters_(self, param_resolver: cirq.study.ParamResolver):
+        """Returns a circuit with all parameters resolved by the param_resolver.
+
+        Args:
+            param_resolver: Defines values for parameters in the circuit.
+        """
+        mpsim_circuit = super()._resolve_parameters_(param_resolver)
+        mpsim_circuit.device = self.device
+        return mpsim_circuit
 
     # TODO: Should this keep the same moment/operation circuit structure?
     #  Or should it just be one-dimensional?
@@ -192,8 +204,10 @@ class MPSimCircuit(cirq.Circuit):
     # TODO: Every time a gate is added to the circuit, also add it to
     #  self._mpsim_operations. E.g.,
     #  mpsim_circuit.append([some new gates])
-    #  or
+    #    or
     #  mpsim_circuit.insert([some gates at some location])
     #  Should update mpsim_circuit._mpsim_operations
     #  Otherwise, a new MPSimCircuit will need to be created before every
     #  circuit simulation.
+    #  In which case it would just be better to let the MPS Simulator
+    #  handle the conversion.
