@@ -469,7 +469,7 @@ class MPS:
             mps_operation: Valid MPS Operation to apply to the MPS.
 
         Keyword Args:
-            See MPS.apply_two_qubit_
+            See MPS.apply_two_qubit_gate.
         """
         if not mps_operation.is_valid():
             raise ValueError("Input MPS Operation is not valid.")
@@ -486,6 +486,20 @@ class MPS:
             raise ValueError(
                 "Only one-qudit and two-qudit gates are currently supported."
             )
+
+    def apply_all_mps_operations(
+            self, mps_operations: List[MPSOperation], **kwargs
+    ):
+        """Applies the MPS Operation to the MPS.
+
+        Args:
+            mps_operation: Valid MPS Operation to apply to the MPS.
+
+        Keyword Args:
+            See MPS.apply_two_qubit_gate.
+        """
+        for mps_operation in mps_operations:
+            self.apply_mps_operation(mps_operation, **kwargs)
 
     def x(self, index: int) -> None:
         """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
