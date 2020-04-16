@@ -6,6 +6,7 @@ import numpy as np
 import tensornetwork as tn
 
 from mpsim.gates import hgate, rgate, xgate, cnot, swap
+from mpsim.mpsim_cirq.circuits import MPSOperation
 
 
 class MPS:
@@ -458,6 +459,33 @@ class MPS:
         self._nodes[right_index] = new_right
 
         self._fidelities.append(self.norm())
+
+    def apply_mps_operation(
+            self, mps_operation: MPSOperation, **kwargs
+    ) -> None:
+        """Applies the MPS Operation to the MPS.
+
+        Args:
+            mps_operation: Valid MPS Operation to apply to the MPS.
+
+        Keyword Args:
+            See MPS.apply_two_qubit_
+        """
+        if not mps_operation.is_valid():
+            raise ValueError("Input MPS Operation is not valid.")
+
+        if mps_operation.is_single_qudit_operation():
+            self.apply_one_qubit_gate(
+                mps_operation.node, mps_operation.qudit_indices[0]
+            )
+        elif mps_operation.is_two_qudit_operation():
+            self.apply_two_qubit_gate(
+                mps_operation.node, *mps_operation.qudit_indices, **kwargs
+            )
+        else:
+            raise ValueError(
+                "Only one-qudit and two-qudit gates are currently supported."
+            )
 
     def x(self, index: int) -> None:
         """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
