@@ -5,10 +5,13 @@ Code for using Matrix Product States to SIMulate (noisy) quantum circuits.
 # Contents
 
 ```
-mpsim/mpsim/
+mpsim/
     | core
     | gates
     | sim
+	mpsim_cirq/
+		| circuits
+		| simulator
 ```
 
 # Installation
@@ -58,4 +61,38 @@ print(mps.wavefunction)
 ```
 
 Note that the wavefunction after truncation is not normalized.
+
+# Cirq integration
+
+Circuits defined in [Cirq](https://github.com/quantumlib/Cirq) can be simulated with MPS as follows.
+
+```python
+import cirq
+from mpsim.mpsim_cirq.simulator import MPSimulator
+
+# Define the circuit
+qreg = cirq.LineQubit.range(2)
+circ = cirq.Circuit(
+    cirq.ops.H.on(qreg[0]),
+    cirq.ops.CNOT(*qreg)
+)
+
+# Do the simulation using the MPS Simulator
+sim = MPSimulator()
+mps = sim.simulate(circ)
+print(mps.wavefunction)
+# Displays [0.70710677+0.j 0.        +0.j 0.        +0.j 0.70710677+0.j]
+```
+
+Truncation can be done by passing in options to the `MPSimulator`.
+
+```python
+sim = MPSimulator(options={"maxsvals": 1})
+mps = sim.simulate(circ)
+print(mps.wavefunction)
+# Displays [0.70710674+0.j 0.        +0.j 0.        +0.j 0.        +0.j]
+```
+
+See `help(MPSimulator)` for a full list of options.
+
 
