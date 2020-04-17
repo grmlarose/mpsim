@@ -21,19 +21,19 @@ from mpsim.gates import (
 from mpsim.mpsim_cirq.circuits import MPSOperation
 
 
-def test_mps_one_qubit():
-    """Ensures an error is raised if the number of qubits is less than two."""
-    with pytest.raises(ValueError):
-        MPS(nqudits=1)
+def test_mps_one_qudit():
+    """Ensures an error is raised if the number of qudits is less than two."""
+    for d in (2, 3, 10, 20, 100):
+        with pytest.raises(ValueError):
+            MPS(nqudits=1, qudit_dimension=d)
 
 
 def test_is_valid_for_product_states():
-    """Tests that a product state on different numbers of qubits
-    is a valid MPS.
-    """
+    """Tests that a product state on different numbers of qudits is valid."""
     for n in range(2, 20):
-        mps = MPS(nqudits=n)
-        assert mps.is_valid()
+        for d in range(2, 10):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            assert mps.is_valid()
 
 
 def test_max_bond_dimensions_odd_nqubits():
@@ -56,8 +56,36 @@ def test_max_bond_dimensions_even_nqubits():
     assert mps._max_bond_dimensions == [2, 4, 8, 16, 8, 4, 2]
 
 
-def test_get_max_bond_dimension():
-    """Tests correctness for getting the maximum bond dimensions in an MPS."""
+def test_max_bond_dimensions_odd_nqudits():
+    """Tests for correctness of maximum bond dimensions for an MPS with
+    an odd number of qudits.
+    """
+    d = 4
+    mps = MPS(nqudits=5, qudit_dimension=d)
+    assert mps._max_bond_dimensions == [4, 16, 16, 4]
+    assert mps.wavefunction.shape == (d**5,)
+
+    mps = MPS(nqudits=7, qudit_dimension=d)
+    assert mps._max_bond_dimensions == [4, 16, 64, 64, 16, 4]
+    assert mps.wavefunction.shape == (d**7,)
+
+
+def test_max_bond_dimensions_even_nqudits():
+    """Tests for correctness of maximum bond dimensions for an MPS
+    with an even number of qudits.
+    """
+    d = 10
+    mps = MPS(nqudits=4, qudit_dimension=d)
+    assert mps._max_bond_dimensions == [10, 100, 10]
+    assert mps.wavefunction.shape == (d ** 4,)
+
+    mps = MPS(nqudits=6, qudit_dimension=d)
+    assert mps._max_bond_dimensions == [10, 100, 1000, 100, 10]
+    assert mps.wavefunction.shape == (d**6,)
+
+
+def test_get_max_bond_dimension_qubits():
+    """Tests correctness for getting maximum bond dimensions in a qubit MPS."""
     mps = MPS(nqudits=10)
     # Correct max bond dimensions: [2, 4, 8, 16, 32, 16, 8, 4, 2]
     assert mps.get_max_bond_dimension_of(0) == 2
@@ -67,17 +95,28 @@ def test_get_max_bond_dimension():
     assert mps.get_max_bond_dimension_of(5) == 16
 
 
+def test_get_max_bond_dimension_qudits():
+    """Tests correctness for getting maximum bond dimensions in a qudit MPS."""
+    d = 10
+    mps = MPS(nqudits=6, qudit_dimension=d)
+    # Correct max bond dimensions: [10, 100, 1000, 100, 10]
+    assert mps.get_max_bond_dimension_of(0) == d
+    assert mps.get_max_bond_dimension_of(1) == d**2
+    assert mps.get_max_bond_dimension_of(2) == d**3
+    assert mps.get_max_bond_dimension_of(3) == d**2
+    assert mps.get_max_bond_dimension_of(-1) == d
+
+
 def test_get_bond_dimensions_product_state():
     """Tests correctness for bond dimensions of a product state MPS."""
     n = 5
-    mps = MPS(nqudits=n)
-    assert mps.get_bond_dimensions() == [1] * (n - 1)
-    mps.h(-1)
-    assert mps.get_bond_dimensions() == [1] * (n - 1)
+    for d in range(3, 10):
+        mps = MPS(nqudits=n, qudit_dimension=d)
+        assert mps.get_bond_dimensions() == [1] * (n - 1)
 
 
-def test_get_wavefunction_simple():
-    """Tests getting the wavefunction of a simple MPS."""
+def test_get_wavefunction_simple_qubits():
+    """Tests getting the wavefunction of a simple qubit MPS."""
     mps = MPS(nqudits=3)
     assert isinstance(mps.wavefunction, np.ndarray)
     assert mps.wavefunction.shape == (8,)
@@ -85,20 +124,42 @@ def test_get_wavefunction_simple():
     assert np.array_equal(mps.wavefunction, correct)
 
 
-def test_get_wavefunction_deosnt_modify_mps():
-    """Tests that getting the wavefunction of an MPS doesn't affect
-     the actual MPS.
-     """
+def test_get_wavefunction_qutrits_simple():
+    """Tests getting the wavefunction of a simple qutrit MPS."""
+    mps = MPS(nqudits=3, qudit_dimension=3)
+    assert mps.wavefunction.shape == (27,)
+    assert np.array_equal(mps.wavefunction, [1] + [0] * 26)
+    assert mps.is_valid()
+
+
+def test_get_wavefunction_deosnt_modify_mps_qubits():
+    """Tests that getting the wavefunction doesn't affect the nodes of a
+    qubit MPS.
+    """
     mps = MPS(nqudits=2)
-    nodes = mps.get_nodes(copy=False)
+    left_node, right_node = mps.get_nodes(copy=False)
     _ = mps.wavefunction
-    a, b = nodes
-    assert len(a.edges) == 2
-    assert len(a.get_all_nondangling()) == 1
-    assert len(a.get_all_dangling()) == 1
-    assert len(b.edges) == 2
-    assert len(b.get_all_nondangling()) == 1
-    assert len(b.get_all_dangling()) == 1
+    assert len(left_node.edges) == 2
+    assert len(left_node.get_all_nondangling()) == 1
+    assert len(left_node.get_all_dangling()) == 1
+    assert len(right_node.edges) == 2
+    assert len(right_node.get_all_nondangling()) == 1
+    assert len(right_node.get_all_dangling()) == 1
+
+
+def test_get_wavefunction_deosnt_modify_mps_qudits():
+    """Tests that getting the wavefunction doesn't affect the nodes of a
+     qudit MPS.
+     """
+    mps = MPS(nqudits=2, qudit_dimension=5)
+    left_node, right_node = mps.get_nodes(copy=False)
+    _ = mps.wavefunction
+    assert len(left_node.edges) == 2
+    assert len(left_node.get_all_nondangling()) == 1
+    assert len(left_node.get_all_dangling()) == 1
+    assert len(right_node.edges) == 2
+    assert len(right_node.get_all_nondangling()) == 1
+    assert len(right_node.get_all_dangling()) == 1
 
 
 def test_correctness_of_initial_product_state_two_qubits():
@@ -115,13 +176,14 @@ def test_correctness_of_initial_product_state_two_qubits():
 
 def test_correctness_of_initial_product_state():
     """Tests that the contracted MPS is indeed the all zero state
-    for multiple qubits.
+    for multiple qudits.
     """
     for n in range(3, 10):
-        mps = MPS(n)
-        wavefunction = mps.wavefunction
-        correct = np.array([1] + [0] * (2 ** n - 1), dtype=np.complex64)
-        assert np.array_equal(wavefunction, correct)
+        for d in range(2, 5):
+            mps = MPS(n, d)
+            wavefunction = mps.wavefunction
+            correct = np.array([1] + [0] * (d ** n - 1), dtype=np.complex64)
+            assert np.array_equal(wavefunction, correct)
 
 
 @pytest.mark.parametrize(
@@ -786,40 +848,3 @@ def test_mps_operation_prepare_bell_state_with_truncation():
     mps.apply_mps_operation(cnot_op, maxsvals=1)
     correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 0.])
     assert np.allclose(mps.wavefunction, correct)
-
-
-def test_mps_qutrits():
-    """Tests for an MPS made up of qutrits."""
-    mps = MPS(nqudits=2, qudit_dimension=3)
-    assert mps.wavefunction.shape == (9,)
-    assert np.array_equal(mps.wavefunction, [1] + [0] * 8)
-    assert mps.is_valid()
-
-
-def test_max_bond_dimensions_odd_nqudits():
-    """Tests for correctness of maximum bond dimensions for an MPS with
-    an odd number of qudits.
-    """
-    d = 4
-    mps = MPS(nqudits=5, qudit_dimension=d)
-    assert mps._max_bond_dimensions == [4, 16, 16, 4]
-    assert mps.wavefunction.shape == (d**5,)
-
-    mps = MPS(nqudits=7, qudit_dimension=d)
-    assert mps._max_bond_dimensions == [4, 16, 64, 64, 16, 4]
-    assert mps.wavefunction.shape == (d**7,)
-
-
-def test_max_bond_dimensions_even_nqudits():
-    """Tests for correctness of maximum bond dimensions for an MPS
-    with an even number of qudits.
-    """
-    d = 10
-    mps = MPS(nqudits=4, qudit_dimension=d)
-    assert mps._max_bond_dimensions == [10, 100, 10]
-    assert mps.wavefunction.shape == (d ** 4,)
-
-    mps = MPS(nqudits=6, qudit_dimension=d)
-    assert mps._max_bond_dimensions == [10, 100, 1000, 100, 10]
-    assert mps.wavefunction.shape == (d**6,)
-
