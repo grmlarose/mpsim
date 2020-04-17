@@ -1,2 +1,2 @@
 pytest
-
+cirq==0.7.0

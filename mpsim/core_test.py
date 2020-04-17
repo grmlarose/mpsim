@@ -13,12 +13,12 @@ from mpsim.gates import (
     zgate,
     hgate,
     cnot,
-    swap,
-    random_two_qubit_gate,
     zero_state,
     one_state,
     plus_state,
 )
+
+from mpsim.mpsim_cirq.circuits import MPSOperation
 
 
 def test_mps_one_qubit():
@@ -28,14 +28,18 @@ def test_mps_one_qubit():
 
 
 def test_is_valid_for_product_states():
-    """Tests that a product state on different numbers of qubits is a valid MPS."""
+    """Tests that a product state on different numbers of qubits
+    is a valid MPS.
+    """
     for n in range(2, 20):
         mps = MPS(nqubits=n)
         assert mps.is_valid()
 
 
 def test_max_bond_dimensions_odd_nqubits():
-    """Tests for correctness of maximum bond dimensions for an MPS with an odd number of qubits."""
+    """Tests for correctness of maximum bond dimensions for an MPS with
+    an odd number of qubits.
+    """
     mps = MPS(nqubits=5)
     assert mps._max_bond_dimensions == [2, 4, 4, 2]
     mps = MPS(nqubits=7)
@@ -43,7 +47,9 @@ def test_max_bond_dimensions_odd_nqubits():
 
 
 def test_max_bond_dimensions_even_nqubits():
-    """Tests for correctness of maximum bond dimensions for an MPS with an even number of qubits."""
+    """Tests for correctness of maximum bond dimensions for an MPS
+    with an even number of qubits.
+    """
     mps = MPS(nqubits=6)
     assert mps._max_bond_dimensions == [2, 4, 8, 4, 2]
     mps = MPS(nqubits=8)
@@ -80,7 +86,9 @@ def test_get_wavefunction_simple():
 
 
 def test_get_wavefunction_deosnt_modify_mps():
-    """Tests that getting the wavefunction of an MPS doesn't affect the actual MPS."""
+    """Tests that getting the wavefunction of an MPS doesn't affect
+     the actual MPS.
+     """
     mps = MPS(nqubits=2)
     nodes = mps.get_nodes(copy=False)
     _ = mps.wavefunction
@@ -94,7 +102,9 @@ def test_get_wavefunction_deosnt_modify_mps():
 
 
 def test_correctness_of_initial_product_state_two_qubits():
-    """Tests that the contracted MPS is indeed the all zero state for two qubits."""
+    """Tests that the contracted MPS is indeed the all zero state
+    for two qubits.
+    """
     mps = MPS(nqubits=2)
     lq, _ = mps.get_nodes()
     wavefunction_node = tn.contract(lq[1])
@@ -104,7 +114,9 @@ def test_correctness_of_initial_product_state_two_qubits():
 
 
 def test_correctness_of_initial_product_state():
-    """Tests that the contracted MPS is indeed the all zero state for multiple qubits."""
+    """Tests that the contracted MPS is indeed the all zero state
+    for multiple qubits.
+    """
     for n in range(3, 10):
         mps = MPS(n)
         wavefunction = mps.wavefunction
@@ -132,7 +144,9 @@ def test_apply_oneq_gate_xgate(gate, expected):
 
 
 def test_apply_oneq_gate_to_all():
-    """Tests correctness for final wavefunction after applying a NOT gate to all qubits in a two-qubit MPS."""
+    """Tests correctness for final wavefunction after applying a
+    NOT gate to all qubits in a two-qubit MPS.
+    """
     mps = MPS(nqubits=2)
     mps.apply_one_qubit_gate_to_all(xgate())
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
@@ -140,7 +154,9 @@ def test_apply_oneq_gate_to_all():
 
 
 def test_apply_oneq_gate_to_all_hadamard():
-    """Tests correctness for final wavefunction after applying a Hadamard gate to all qubits in a five-qubit MPS."""
+    """Tests correctness for final wavefunction after applying a Hadamard
+    gate to all qubits in a five-qubit MPS.
+    """
     n = 5
     mps = MPS(nqubits=n)
     mps.apply_one_qubit_gate_to_all(hgate())
@@ -149,7 +165,9 @@ def test_apply_oneq_gate_to_all_hadamard():
 
 
 def test_apply_twoq_cnot_two_qubits():
-    """Tests for correctness of final wavefunction after applying a CNOT to a two-qubit MPS."""
+    """Tests for correctness of final wavefunction after applying a CNOT
+    to a two-qubit MPS.
+    """
     # In the following tests, the first qubit is always the control qubit.
     # Check that CNOT|10> = |11>
     mps = MPS(nqubits=2)
@@ -180,7 +198,9 @@ def test_apply_twoq_cnot_two_qubits():
 
 
 def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
-    """Tests for correctness of final wavefunction after applying a CNOT to a two-qubit MPS."""
+    """Tests for correctness of final wavefunction after applying a CNOT
+    to a two-qubit MPS.
+    """
     # In the following tests, the first qubit is always the target qubit.
     # Check that CNOT|10> = |10>
     mps = MPS(nqubits=2)
@@ -219,7 +239,9 @@ def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
 
 
 def test_apply_twoq_identical_indices_raises_error():
-    """Tests that a two-qubit gate application with identical indices raises an error."""
+    """Tests that a two-qubit gate application with
+    identical indices raises an error.
+    """
     mps2q = MPS(nqubits=2)
     mps3q = MPS(nqubits=3)
     mps9q = MPS(nqubits=9)
@@ -230,7 +252,9 @@ def test_apply_twoq_identical_indices_raises_error():
 
 
 def test_apply_twoq_non_adjacent_indices_raises_error():
-    """Tests that a two-qubit gate application with non-adjacent indices raises an error."""
+    """Tests that a two-qubit gate application with non-adjacent
+     indices raises an error.
+     """
     n = 10
     mps = MPS(nqubits=n)
     for (a, b) in [(0, 2), (0, 9), (4, 6), (2, 7)]:
@@ -240,10 +264,11 @@ def test_apply_twoq_non_adjacent_indices_raises_error():
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
 def test_apply_twoq_gate_indexB_great_than_indexA_raise_error(left):
-    """Tests that applying a two-qubit gate with indexA > indexB raises an error.
+    """Tests that a two-qubit gate with indexA > indexB raises an error.
 
-    TODO: This is really due to my inability to find the bug for this case. We can get around this by,
-     e.g. for a CNOT, conjugating by Hadamard gates to flip control/target.
+    TODO: This is really due to my inability to find the bug for this case.
+      We can get around this by, e.g. for a CNOT, conjugating by Hadamard gates
+      to flip control/target.
     """
     mps = MPS(nqubits=10)
     with pytest.raises(ValueError):
@@ -360,10 +385,10 @@ def test_apply_twoq_cnot_four_qubits_edge_qubits(left):
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
 def test_apply_twoq_cnot_five_qubits_all_combinations(left):
-    """Tests applying a CNOT to a five qubit MPS with all combinations of indices.
+    """Tests applying a CNOT to a five qubit MPS with all index combinations.
 
-    That is, CNOT_01, CNOT_02, CNOT_03, ..., CNOT_24, CNOT_34 where the first number is
-    the control qubit and the second is the target qubit.
+    That is, CNOT_01, CNOT_02, CNOT_03, ..., CNOT_24, CNOT_34 where
+    the first number is the control qubit and the second is the target qubit.
     """
     n = 5
     indices = [(a, a + 1) for a in range(n - 1)]
@@ -478,7 +503,9 @@ def test_bell_state(left):
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
 def test_twoq_gates_in_succession(left):
-    """Tests for wavefunction correctness after applying a series of two-qubit gates."""
+    """Tests for wavefunction correctness after applying a
+    series of two-qubit gates.
+    """
     n = 2
     mps = MPS(n)
     mps.x(0)  # State: |10>
@@ -567,7 +594,9 @@ def test_three_cnots_is_swap(left):
 
 
 def test_apply_cnot_right_to_left_sweep_threeq_mps():
-    """Tests applying a CNOT in a "right to left sweep" in a three-qubit MPS retains a valid MPS."""
+    """Tests applying a CNOT in a "right to left sweep" in a
+    three-qubit MPS retains a valid MPS.
+    """
     n = 3
     mps = MPS(n)
     mps.x(2)
@@ -577,7 +606,9 @@ def test_apply_cnot_right_to_left_sweep_threeq_mps():
 
 
 def test_qubit_hopping_left_to_right_and_back():
-    """Tests "hopping" a qubit with a sequence of swap gates in several n-qubit MPS states."""
+    """Tests "hopping" a qubit with a sequence of swap gates in
+     several n-qubit MPS states.
+     """
     for n in range(2, 20):
         print("Status: n =", n)
         mps = MPS(n)
@@ -620,7 +651,9 @@ def test_cnot_truncation_on_bell_state():
 
 
 def test_bond_dimension_doubles_two_qubit_gate():
-    """Tests that the bond dimension doubles after applying a two-qubit gate to a product state."""
+    """Tests that the bond dimension doubles after applying a
+    two-qubit gate to a product state.
+    """
     mps = MPS(nqubits=2)
     assert mps.get_bond_dimension_of(0) == 1
     mps.h(0)
@@ -633,8 +666,10 @@ def test_bond_dimension_doubles_two_qubit_gate():
 
 
 def test_keep_half_bond_dimension_singular_values():
-    """Tests keeping a number of singular values which is half the maximum bond dimension."""
-    # Get an MPS and test the initial bond dimensions and maximum bond dimensions
+    """Tests keeping a number of singular values which is half
+    the maximum bond dimension.
+    """
+    # Get an MPS and test the initial bond dimensions and max bond dimensions
     mps = MPS(nqubits=4)
     assert mps.get_bond_dimensions() == [1, 1, 1]
     assert mps.get_max_bond_dimensions() == [2, 4, 2]
@@ -646,7 +681,7 @@ def test_keep_half_bond_dimension_singular_values():
     )
     assert mps.get_bond_dimensions() == [2, 1, 1]
     
-    # Get an MPS and test the initial bond dimensions and maximum bond dimensions
+    # Get an MPS and test the initial bond dimensions and max bond dimensions
     mps = MPS(nqubits=4)
     assert mps.get_bond_dimensions() == [1, 1, 1]
     assert mps.get_max_bond_dimensions() == [2, 4, 2]
@@ -714,3 +749,40 @@ def test_norm_is_zero_after_throwing_away_all_singular_values():
     mps.cnot(0, 1, maxsvals=0)
     assert mps.norm() == 0
 
+
+def test_apply_one_qubit_mps_operation_xgate():
+    """Tests applying a single qubit MPS Operation."""
+    mps = MPS(nqubits=2)
+    mps_operation = MPSOperation(xgate(), qudit_indices=(0,), qudit_dimension=2)
+    assert np.array_equal(mps.wavefunction, [1., 0., 0., 0.])
+
+    mps.apply_mps_operation(mps_operation)  # Applies NOT to the first qubit
+    assert np.array_equal(mps.wavefunction, [0., 0., 1., 0.])
+
+
+def test_mps_operation_prepare_bell_state():
+    """Tests preparing a Bell state using MPS Operations."""
+    mps = MPS(nqubits=2)
+    h_op = MPSOperation(hgate(), qudit_indices=(0,), qudit_dimension=2)
+    cnot_op = MPSOperation(cnot(), qudit_indices=(0, 1), qudit_dimension=2)
+    assert np.array_equal(mps.wavefunction, [1., 0., 0., 0.])
+
+    mps.apply_mps_operation(h_op)
+    mps.apply_mps_operation(cnot_op)
+    correct = 1 / np.sqrt(2) * np.array([1, 0, 0, 1])
+    assert np.allclose(mps.wavefunction, correct)
+
+
+def test_mps_operation_prepare_bell_state_with_truncation():
+    """Tests preparing a Bell state using MPS Operations providng maxsvals
+    as a keyword argument to MPS.apply_mps_operation.
+    """
+    mps = MPS(nqubits=2)
+    h_op = MPSOperation(hgate(), qudit_indices=(0,), qudit_dimension=2)
+    cnot_op = MPSOperation(cnot(), qudit_indices=(0, 1), qudit_dimension=2)
+    assert np.array_equal(mps.wavefunction, [1., 0., 0., 0.])
+
+    mps.apply_mps_operation(h_op)
+    mps.apply_mps_operation(cnot_op, maxsvals=1)
+    correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction, correct)
