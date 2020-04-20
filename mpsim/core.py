@@ -310,7 +310,7 @@ class MPS:
             current_node_index: Index of the node to move from left to right.
             final_node_index: Final index location of the node to move.
         """
-        if current_node_index >= final_node_index:
+        if current_node_index > final_node_index:
             raise ValueError(
                 "current_node_index should be smaller than final_node_index."
             )
@@ -321,12 +321,40 @@ class MPS:
         if final_node_index >= self._nqudits:
             raise ValueError("final_node_index out of range.")
 
-        if current_node_index == final_node_index - 1:
+        if current_node_index == final_node_index:
             return
 
-        while current_node_index < final_node_index - 1:
+        while current_node_index < final_node_index:
             self.swap(current_node_index, current_node_index + 1, **kwargs)
             current_node_index += 1
+
+    def move_node_from_right_to_left(
+            self, current_node_index: int, final_node_index: int, **kwargs
+    ) -> None:
+        """Moves the MPS node at current_node_index to the final_node_index by
+        implementing a sequence of SWAP gates from right to left.
+
+        Args:
+            current_node_index: Index of the node to move from right to left.
+            final_node_index: Final index location of the node to move.
+        """
+        if current_node_index < final_node_index:
+            raise ValueError(
+                "current_node_index should be larger than final_node_index."
+            )
+
+        if current_node_index > self._nqudits:
+            raise ValueError("current_node_index out of range.")
+
+        if final_node_index < 0:
+            raise ValueError("final_node_index out of range.")
+
+        if current_node_index == final_node_index:
+            return
+
+        while current_node_index > final_node_index:
+            self.swap(current_node_index - 1, current_node_index, **kwargs)
+            current_node_index -= 1
 
     def apply_two_qubit_gate(
         self, gate: tn.Node, indexA: int, indexB: int, **kwargs
@@ -618,6 +646,8 @@ class MPS:
 
     def swap(self, a: int, b: int, **kwargs) -> None:
         """Applies a SWAP gate between qubits indexed `a` and `b`."""
+        if b < a:
+            a, b = b, a
         self.apply_two_qubit_gate(swap(), a, b, **kwargs)
 
     def __str__(self):
