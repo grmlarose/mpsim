@@ -188,14 +188,12 @@ def test_correctness_of_initial_product_state():
 
 @pytest.mark.parametrize(
     ["gate", "expected"],
-    [
-        (xgate(), one_state),
-        (hgate(), plus_state),
-        (zgate(), zero_state),
-        (igate(), zero_state),
-    ],
+    [(xgate(), one_state),
+     (hgate(), plus_state),
+     (zgate(), zero_state),
+     (igate(), zero_state)],
 )
-def test_apply_oneq_gate_xgate(gate, expected):
+def test_apply_one_qubit_gate(gate, expected):
     """Tests application of a single qubit gate to several MPS."""
     for n in range(2, 8):
         for j in range(n):
