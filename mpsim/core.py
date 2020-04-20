@@ -300,6 +300,30 @@ class MPS:
         for i in range(self._nqudits):
             self.apply_one_qubit_gate(gate, i)
 
+    def swap_until_adjacent(
+            self, left_index: int, right_index: int, **kwargs
+    ) -> None:
+        """Swaps nodes in the MPS from left to right until the nodes at
+        left_index and right_index are adjacent, modifying the MPS in place.
+        
+        Args:
+            left_index: Index of the left-most node in the MPS to swap.
+            right_index: Index of the right-most node in the MPS to swap.
+        """
+        if left_index >= right_index:
+            raise ValueError("left_index should be less than right_index.")
+
+        if left_index < 0 or right_index >= self._nqudits:
+            raise ValueError("Indices out of range.")
+
+        if left_index == right_index - 1:
+            return
+
+        while left_index < right_index - 1:
+            print(f"Swapping node {left_index} with node {left_index + 1}")
+            self.swap(left_index, left_index + 1, **kwargs)
+            left_index += 1
+
     def apply_two_qubit_gate(
         self, gate: tn.Node, indexA: int, indexB: int, **kwargs
     ) -> None:
@@ -516,7 +540,7 @@ class MPS:
         """Applies the MPS Operation to the MPS.
 
         Args:
-            mps_operation: Valid MPS Operation to apply to the MPS.
+            mps_operations: List of valid MPS Operations to apply to the MPS.
 
         Keyword Args:
             See MPS.apply_two_qubit_gate.

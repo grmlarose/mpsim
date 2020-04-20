@@ -186,6 +186,7 @@ def test_correctness_of_initial_product_state():
             assert np.array_equal(wavefunction, correct)
 
 
+# Unit tests for applying gates to qubit (as opposed to qudit) MPS
 @pytest.mark.parametrize(
     ["gate", "expected"],
     [(xgate(), one_state),
@@ -342,50 +343,14 @@ def test_apply_twoq_cnot_four_qubits_interior_qubits(left):
     mps = MPS(nqudits=4)  # State: |0000>
     mps.x(1)  # State: |0100>
     mps.cnot(1, 2, keep_left_canonical=left)  # State: |0110>
-    correct = np.array(
-        [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-        ]
-    )
+    correct = np.zeros(shape=(16,))
+    correct[6] = 1.
     assert np.array_equal(mps.wavefunction, correct)
 
     mps = MPS(nqudits=4)  # State: |0000>
     mps.cnot(1, 2, keep_left_canonical=left)  # State: |0000>
-    correct = np.array(
-        [
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-        ]
-    )
+    correct = np.zeros(shape=(16,))
+    correct[0] = 1.
     assert np.array_equal(mps.wavefunction, correct)
 
 
@@ -395,51 +360,15 @@ def test_apply_twoq_cnot_four_qubits_edge_qubits(left):
     mps = MPS(nqudits=4)  # State: |0000>
     mps.x(2)  # State: |0010>
     mps.cnot(2, 3, keep_left_canonical=left)  # State: Should be |0011>
-    correct = np.array(
-        [
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-        ]
-    )
+    correct = np.zeros(shape=(16,))
+    correct[3] = 1.
     assert np.array_equal(mps.wavefunction, correct)
 
     mps = MPS(nqudits=4)  # State: |0000>
     mps.x(0)  # State: |1000>
     mps.cnot(0, 1, keep_left_canonical=left)  # State: Should be |1100>
-    correct = np.array(
-        [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-        ]
-    )
+    correct = np.zeros(shape=(16,))
+    correct[12] = 1.
     assert np.array_equal(mps.wavefunction, correct)
 
 
@@ -458,6 +387,7 @@ def test_apply_twoq_cnot_five_qubits_all_combinations(left):
         mps = MPS(n)
         mps.x(a)
         mps.cnot(a, b, keep_left_canonical=left)
+
         # Get the correct wavefunction
         correct = np.zeros((2 ** n,))
         bits = ["0"] * n
@@ -548,6 +478,71 @@ def test_qubit_hopping_left_to_right(left):
     correct = np.zeros(2 ** n)
     correct[0] = correct[2 ** (n - 1)] = 1.0 / np.sqrt(2)
     assert np.allclose(mps.wavefunction, correct)
+
+
+def test_swap_until_adjacent_three_qubits_one_state():
+    """Tests swapping two qudits until they are adjacent."""
+    mps = MPS(nqudits=3, qudit_dimension=2)  # State: |000>
+    mps.x(0)                                 # State: |100>
+    mps.swap_until_adjacent(0, 2)            # State: |010>
+    correct = [0., 0., 1., 0., 0., 0., 0., 0.]
+    assert np.array_equal(mps.wavefunction, correct)
+
+
+def test_swap_until_adjacent_three_qubits_plus_state():
+    """Tests swapping two qudits until they are adjacent."""
+    mps = MPS(nqudits=3, qudit_dimension=2)  # State: |000>
+    mps.h(0)  # State: |000> + |100>
+    mps.swap_until_adjacent(0, 2)  # State: |000> + |010>
+    correct = np.array([1., 0., 1., 0., 0., 0., 0., 0.]) / np.sqrt(2)
+    assert np.allclose(mps.wavefunction, correct)
+
+
+def test_swap_until_adjacent_ten_qubits_end_nodes():
+    """Tests swapping two qudits until they are adjacent."""
+    n = 10
+    mps = MPS(nqudits=n, qudit_dimension=2)  # State: |000>
+    mps.x(0)  # State: |1000000000>
+    mps.swap_until_adjacent(0, 5)  # State: |0000010000>
+    correct = np.zeros((2**n,))
+    correct[2**5] = 1.
+    assert np.allclose(mps.wavefunction, correct)
+
+    mps.swap_until_adjacent(4, 9)  # State: |0000000010>
+    correct = np.zeros((2**n,))
+    correct[2] = 1.
+    assert np.allclose(mps.wavefunction, correct)
+
+
+def test_swap_until_adjacent_raises_error_with_equal_indices():
+    mps = MPS(nqudits=5)
+    with pytest.raises(ValueError):
+        mps.swap_until_adjacent(left_index=0, right_index=0)
+
+
+def test_swap_until_adjacent_raises_error_with_left_index_greater_than_right():
+    mps = MPS(nqudits=5)
+    with pytest.raises(ValueError):
+        mps.swap_until_adjacent(left_index=4, right_index=0)
+
+
+def test_swap_until_adjacent_then_apply_two_qubit_gate():
+    n = 5
+    mps = MPS(nqudits=n)  # State: |00000>
+    mps.x(0)  # State: |10000>
+    correct = np.zeros(shape=(2**n,))
+    correct[16] = 1.
+    assert np.array_equal(mps.wavefunction, correct)
+
+    mps.swap(3, 4)  # State: |10000>
+    assert np.array_equal(mps.wavefunction, correct)
+
+    mps.swap_until_adjacent(0, 4)  # State: |00010>
+    mps.swap(3, 4)  # State: |00001>
+
+    correct = np.zeros(shape=(2**n,))
+    correct[1] = 1.
+    assert np.array_equal(mps.wavefunction, correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
