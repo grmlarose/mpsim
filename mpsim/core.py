@@ -300,29 +300,33 @@ class MPS:
         for i in range(self._nqudits):
             self.apply_one_qubit_gate(gate, i)
 
-    def swap_until_adjacent(
-            self, left_index: int, right_index: int, **kwargs
+    def move_node_from_left_to_right(
+            self, current_node_index: int, final_node_index: int, **kwargs
     ) -> None:
-        """Swaps nodes in the MPS from left to right until the nodes at
-        left_index and right_index are adjacent, modifying the MPS in place.
+        """Moves the MPS node at current_node_index to the final_node_index by
+        implementing a sequence of SWAP gates from left to right.
         
         Args:
-            left_index: Index of the left-most node in the MPS to swap.
-            right_index: Index of the right-most node in the MPS to swap.
+            current_node_index: Index of the node to move from left to right.
+            final_node_index: Final index location of the node to move.
         """
-        if left_index >= right_index:
-            raise ValueError("left_index should be less than right_index.")
+        if current_node_index >= final_node_index:
+            raise ValueError(
+                "current_node_index should be smaller than final_node_index."
+            )
 
-        if left_index < 0 or right_index >= self._nqudits:
-            raise ValueError("Indices out of range.")
+        if current_node_index < 0:
+            raise ValueError("current_node_index out of range.")
 
-        if left_index == right_index - 1:
+        if final_node_index >= self._nqudits:
+            raise ValueError("final_node_index out of range.")
+
+        if current_node_index == final_node_index - 1:
             return
 
-        while left_index < right_index - 1:
-            print(f"Swapping node {left_index} with node {left_index + 1}")
-            self.swap(left_index, left_index + 1, **kwargs)
-            left_index += 1
+        while current_node_index < final_node_index - 1:
+            self.swap(current_node_index, current_node_index + 1, **kwargs)
+            current_node_index += 1
 
     def apply_two_qubit_gate(
         self, gate: tn.Node, indexA: int, indexB: int, **kwargs

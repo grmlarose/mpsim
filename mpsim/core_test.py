@@ -480,53 +480,57 @@ def test_qubit_hopping_left_to_right(left):
     assert np.allclose(mps.wavefunction, correct)
 
 
-def test_swap_until_adjacent_three_qubits_one_state():
+def test_move_node_left_to_right_three_qubits_one_state():
     """Tests swapping two qudits until they are adjacent."""
     mps = MPS(nqudits=3, qudit_dimension=2)  # State: |000>
     mps.x(0)                                 # State: |100>
-    mps.swap_until_adjacent(0, 2)            # State: |010>
+    mps.move_node_from_left_to_right(0, 2)            # State: |010>
     correct = [0., 0., 1., 0., 0., 0., 0., 0.]
     assert np.array_equal(mps.wavefunction, correct)
 
 
-def test_swap_until_adjacent_three_qubits_plus_state():
+def test_move_node_left_to_right_three_qubits_plus_state():
     """Tests swapping two qudits until they are adjacent."""
     mps = MPS(nqudits=3, qudit_dimension=2)  # State: |000>
     mps.h(0)  # State: |000> + |100>
-    mps.swap_until_adjacent(0, 2)  # State: |000> + |010>
+    mps.move_node_from_left_to_right(0, 2)  # State: |000> + |010>
     correct = np.array([1., 0., 1., 0., 0., 0., 0., 0.]) / np.sqrt(2)
     assert np.allclose(mps.wavefunction, correct)
 
 
-def test_swap_until_adjacent_ten_qubits_end_nodes():
+def test_move_node_left_to_right_ten_qubits_end_nodes():
     """Tests swapping two qudits until they are adjacent."""
     n = 10
     mps = MPS(nqudits=n, qudit_dimension=2)  # State: |000>
     mps.x(0)  # State: |1000000000>
-    mps.swap_until_adjacent(0, 5)  # State: |0000010000>
+    mps.move_node_from_left_to_right(0, 5)  # State: |0000010000>
     correct = np.zeros((2**n,))
     correct[2**5] = 1.
     assert np.allclose(mps.wavefunction, correct)
 
-    mps.swap_until_adjacent(4, 9)  # State: |0000000010>
+    mps.move_node_from_left_to_right(4, 9)  # State: |0000000010>
     correct = np.zeros((2**n,))
     correct[2] = 1.
     assert np.allclose(mps.wavefunction, correct)
 
 
-def test_swap_until_adjacent_raises_error_with_equal_indices():
+def test_move_node_left_to_right_raises_error_with_equal_indices():
     mps = MPS(nqudits=5)
     with pytest.raises(ValueError):
-        mps.swap_until_adjacent(left_index=0, right_index=0)
+        mps.move_node_from_left_to_right(
+            current_node_index=0, final_node_index=0
+        )
 
 
-def test_swap_until_adjacent_raises_error_with_left_index_greater_than_right():
+def test_move_node_left_to_right_raises_error_with_left_greater_than_right():
     mps = MPS(nqudits=5)
     with pytest.raises(ValueError):
-        mps.swap_until_adjacent(left_index=4, right_index=0)
+        mps.move_node_from_left_to_right(
+            current_node_index=4, final_node_index=0
+        )
 
 
-def test_swap_until_adjacent_then_apply_two_qubit_gate():
+def test_move_node_left_to_right_then_apply_two_qubit_gate():
     n = 5
     mps = MPS(nqudits=n)  # State: |00000>
     mps.x(0)  # State: |10000>
@@ -537,7 +541,7 @@ def test_swap_until_adjacent_then_apply_two_qubit_gate():
     mps.swap(3, 4)  # State: |10000>
     assert np.array_equal(mps.wavefunction, correct)
 
-    mps.swap_until_adjacent(0, 4)  # State: |00010>
+    mps.move_node_from_left_to_right(0, 4)  # State: |00010>
     mps.swap(3, 4)  # State: |00001>
 
     correct = np.zeros(shape=(2**n,))
