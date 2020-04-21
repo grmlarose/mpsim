@@ -142,3 +142,67 @@ def test_two_qubit_parameterized_circuit_single_parameter():
         cirq.CNOT.on(*qreg)
     )
     assert np.allclose(mps.wavefunction, solved_circuit.final_wavefunction())
+
+
+def test_parameterized_single_qubit_gates():
+    """Tests several different single-qubit gates with parameters."""
+    rng = np.random.RandomState(seed=1)
+    n = 4
+    symbols = [sympy.Symbol(str(i)) for i in range(n)]
+    qreg = cirq.LineQubit.range(n)
+
+    num_tests = 20
+    for _ in range(num_tests):
+        values = list(rng.rand(n))
+        circ = cirq.Circuit(
+            cirq.ops.HPowGate(exponent=symbols[0]).on(qreg[0]),
+            cirq.ops.ZPowGate(exponent=symbols[1]).on(qreg[1]),
+            cirq.ops.PhasedXPowGate(phase_exponent=symbols[2]).on(qreg[2]),
+            cirq.ops.Ry(rads=symbols[3]).on(qreg[3]),
+        )
+
+        # Get the final wavefunction using the Cirq Simulator
+        solved_circuit = cirq.Circuit(
+            cirq.ops.HPowGate(exponent=values[0]).on(qreg[0]),
+            cirq.ops.ZPowGate(exponent=values[1]).on(qreg[1]),
+            cirq.ops.PhasedXPowGate(phase_exponent=values[2]).on(qreg[2]),
+            cirq.ops.Ry(rads=values[3]).on(qreg[3]),
+        )
+        cirq_wavefunction = solved_circuit.final_wavefunction()
+
+        # Get the final wavefunction using the MPS Simulator
+        sim = MPSimulator()
+        mps = sim.simulate(circ, dict(zip(symbols, values)))
+
+        assert np.allclose(mps.wavefunction, cirq_wavefunction)
+
+
+def test_parameterized_local_two_qubit_gates():
+    """Tests several different two-qubit local gates with parameters."""
+    rng = np.random.RandomState(seed=1)
+    n = 4
+    symbols = [sympy.Symbol(str(i)) for i in range(n // 2)]
+    qreg = cirq.LineQubit.range(n)
+
+    num_tests = 20
+    for _ in range(num_tests):
+        values = list(rng.rand(n // 2))
+        circ = cirq.Circuit(
+            cirq.ops.H.on_each(*qreg),
+            cirq.ops.CZPowGate(exponent=symbols[0]).on(qreg[0], qreg[1]),
+            cirq.ops.ZZPowGate(exponent=symbols[1]).on(qreg[2], qreg[3])
+        )
+
+        # Get the final wavefunction using the Cirq Simulator
+        solved_circuit = cirq.Circuit(
+            cirq.ops.H.on_each(*qreg),
+            cirq.ops.CZPowGate(exponent=values[0]).on(qreg[0], qreg[1]),
+            cirq.ops.ZZPowGate(exponent=values[1]).on(qreg[2], qreg[3])
+        )
+        cirq_wavefunction = solved_circuit.final_wavefunction()
+
+        # Get the final wavefunction using the MPS Simulator
+        sim = MPSimulator()
+        mps = sim.simulate(circ, dict(zip(symbols, values)))
+
+        assert np.allclose(mps.wavefunction, cirq_wavefunction)
