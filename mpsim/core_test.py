@@ -13,6 +13,7 @@ from mpsim.gates import (
     zgate,
     hgate,
     cnot,
+    cphase,
     zero_state,
     one_state,
     plus_state,
@@ -917,4 +918,29 @@ def test_apply_nonlocal_two_qubit_gate():
         mps.cnot(0, n - 1)        # State: |10...1>
         correct = np.zeros(shape=(2**n,))
         correct[2**(n - 1) + 1] = 1.
+        assert np.allclose(mps.wavefunction, correct)
+
+
+def test_prepare_ghz_states_using_nonlocal_gates():
+    """Tests preparing n-qubit GHZ states using non-local CNOT gates."""
+    for n in range(3, 10):
+        mps = MPS(nqudits=n)
+        mps.h(0)
+        for i in range(1, n):
+            mps.cnot(0, i)
+        correct = np.zeros(shape=(2**n,))
+        correct[0] = correct[-1] = 1. / np.sqrt(2)
+        assert np.allclose(mps.wavefunction, correct)
+
+
+def test_apply_qft_nonlocal_gates():
+    """Tests applying the QFT to an n-qubit MPS in the all zero state."""
+    for n in range(3, 10):
+        mps = MPS(nqudits=n)
+        for i in range(n - 1, -1, -1):
+            mps.h(i)
+            for j in range(i - 1, 0, -1):
+                mps.apply_two_qubit_gate(cphase(2**(i - j)), j, i)
+        correct = np.ones(shape=(2**n,))
+        correct /= 2**(n / 2)
         assert np.allclose(mps.wavefunction, correct)

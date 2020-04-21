@@ -26,7 +26,8 @@ _zmatrix = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=np.complex64)
 
 
 # Common single qubit gates as tn.Node objects
-# Note that functions are used because TensorNetwork connect/contract functions modify Node objects
+# Note that functions are used because TensorNetwork connect/contract
+# functions modify Node objects
 def igate() -> tn.Node:
     return tn.Node(deepcopy(_imatrix), name="igate")
 
@@ -52,7 +53,8 @@ def hgate() -> tn.Node:
 
 
 def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
-    """Returns the random single qubit gate described in https://arxiv.org/abs/2002.07730.
+    """Returns the random single qubit gate described in
+    https://arxiv.org/abs/2002.07730.
     
     Args:
         seed: Seed for random number generator.
@@ -75,7 +77,8 @@ def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
         -1j * theta * (mx * _xmatrix + my * _ymatrix * mz * _zmatrix)
     )
 
-    # TODO: Note to Guifre diagonal elements of this unitary are always real, and off-diagonal elements are imaginary
+    # TODO: Note to Guifre diagonal elements of this unitary are always real,
+    #  and off-diagonal elements are imaginary
     return tn.Node(unitary)
 
 
@@ -107,6 +110,17 @@ def cnot() -> tn.Node:
 
 def swap() -> tn.Node:
     return tn.Node(deepcopy(_swap_matrix), name="swap")
+
+
+def cphase(exp: float) -> tn.Node:
+    matrix = np.array([
+        [1., 0., 0., 0.],
+        [0., 1., 0., 0.],
+        [0., 0., 1., 0.],
+        [0., 0., 0., np.exp(1j * 2 * np.pi * exp)]
+    ], dtype=np.complex64)
+    matrix = np.reshape(matrix, newshape=(2, 2, 2, 2))
+    return tn.Node(matrix, name="cphase")
 
 
 def random_two_qubit_gate(seed: Optional[int] = None) -> tn.Node:

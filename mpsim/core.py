@@ -587,6 +587,7 @@ class MPS:
         for mps_operation in mps_operations:
             self.apply_mps_operation(mps_operation, **kwargs)
 
+    # TODO: Remove single qubit gates -- these don't generalize to qudits.
     def x(self, index: int) -> None:
         """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
 
@@ -631,6 +632,7 @@ class MPS:
         else:
             self.apply_one_qubit_gate(rgate(seed, angle_scale), index)
 
+    # TODO: Remove. This doesn't generalize to qudits.
     def cnot(self, a: int, b: int, **kwargs) -> None:
         """Applies a CNOT gate with qubit indexed `a` as control
         and qubit indexed `b` as target.
