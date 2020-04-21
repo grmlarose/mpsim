@@ -312,17 +312,6 @@ def test_apply_twoq_identical_indices_raises_error():
             mps.cnot(1, 1)
 
 
-def test_apply_twoq_non_adjacent_indices_raises_error():
-    """Tests that a two-qubit gate application with non-adjacent
-     indices raises an error.
-     """
-    n = 10
-    mps = MPS(nqudits=n)
-    for (a, b) in [(0, 2), (0, 9), (4, 6), (2, 7)]:
-        with pytest.raises(ValueError):
-            mps.cnot(a, b)
-
-
 @pytest.mark.parametrize(["left"], [[True], [False]])
 def test_apply_twoq_gate_indexB_great_than_indexA_raise_error(left):
     """Tests that a two-qubit gate with indexA > indexB raises an error.
@@ -918,3 +907,14 @@ def test_mps_operation_prepare_bell_state_with_truncation():
     mps.apply_mps_operation(cnot_op, maxsvals=1)
     correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 0.])
     assert np.allclose(mps.wavefunction, correct)
+
+
+def test_apply_nonlocal_two_qubit_gate():
+    """Tests applying a non-local CNOT in a 3-10 qubit MPS."""
+    for n in range(3, 10):
+        mps = MPS(nqudits=n)      # State: |00...0>
+        mps.x(0)                  # State: |10...0>
+        mps.cnot(0, n - 1)        # State: |10...1>
+        correct = np.zeros(shape=(2**n,))
+        correct[2**(n - 1) + 1] = 1.
+        assert np.allclose(mps.wavefunction, correct)

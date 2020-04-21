@@ -407,17 +407,20 @@ class MPS:
         if indexA == indexB:
             raise ValueError("Input indices cannot be identical.")
 
-        if abs(indexA - indexB) != 1:
-            raise ValueError(
-                "Indices must be for adjacent tensors (must differ by one)."
-            )
-
         if (len(gate.get_all_dangling()) != 4
                 or len(gate.get_all_nondangling()) != 0):
             raise ValueError(
                 "Two qubit gate must have four free edges"
                 " and zero connected edges."
             )
+
+        # Swap tensors until adjacent if necessary
+        invert_swap_network = False
+        if abs(indexA - indexB) != 1:
+            invert_swap_network = True
+            original_indexA = indexA
+            self.move_node_from_left_to_right(indexA, indexB - 1)
+            indexA = indexB - 1
 
         # Connect the MPS tensors to the gate edges
         if indexA < indexB:
@@ -536,6 +539,10 @@ class MPS:
 
         self._nodes[left_index] = new_left
         self._nodes[right_index] = new_right
+
+        # Invert the Swap network, if necessary
+        if invert_swap_network:
+            self.move_node_from_right_to_left(indexA, original_indexA)
 
         self._fidelities.append(self.norm())
 
