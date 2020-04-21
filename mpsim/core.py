@@ -1,6 +1,6 @@
 """Defines matrix product state class."""
 
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import numpy as np
 import tensornetwork as tn
@@ -12,78 +12,100 @@ from mpsim.mpsim_cirq.circuits import MPSOperation
 class MPS:
     """Matrix Product State (MPS) for simulating (noisy) quantum circuits."""
 
-    def __init__(self, nqubits: int, tensor_prefix: str = "q") -> None:
-        """Initializes an MPS of qubits in the all |0> state.
+    def __init__(
+            self,
+            nqudits: int,
+            qudit_dimension: int = 2,
+            tensor_prefix: str = "q"
+    ) -> None:
+        """Initializes an MPS of qudits in the all |0> state.
 
-        The MPS has the following structure (shown for six qubits):
+        The MPS has the following structure (shown for six qudits):
 
             @ ---- @ ---- @ ---- @ ---- @ ---- @
             |      |      |      |      |      |
 
         Virtual indices have bond dimension one and physical indices
-        have bond dimension 2.
+        have bond dimension equal to the qudit_dimension.
 
         Args:
-            nqubits: Number of qubits in the all zero state.
+            nqudits: Number of qubits in the all zero state.
+            qudit_dimension: Dimension of qudits. Default value is 2 (qubits).
             tensor_prefix: Prefix for tensor names.
                 The full name is prefix + numerical index, numbered from
                 left to right starting with zero.
         """
-        if nqubits < 2:
+        if nqudits < 2:
             raise ValueError(
-                f"Number of qubits must be greater than 2 but is {nqubits}."
+                f"Number of qudits must be greater than 2 but is {nqudits}."
             )
 
         # Get nodes on the interior
         nodes = [
             tn.Node(
-                np.array([[[1.0]], [[0,]]], dtype=np.complex64),
+                np.array(
+                    [[[1.0]], *[[[0]]] * (qudit_dimension - 1)],
+                    dtype=np.complex64
+                ),
                 name=tensor_prefix + str(x + 1),
             )
-            for x in range(nqubits - 2)
+            for x in range(nqudits - 2)
         ]
 
-        # Get nodes on the end
+        # Get nodes on the edges
         nodes.insert(
             0,
             tn.Node(
-                np.array([[1.0], [0,]], dtype=np.complex64),
+                np.array(
+                    [[1.0], *[[0]] * (qudit_dimension - 1)], dtype=np.complex64
+                ),
                 name=tensor_prefix + str(0),
             ),
         )
         nodes.append(
             tn.Node(
-                np.array([[1.0], [0,]], dtype=np.complex64),
-                name=tensor_prefix + str(nqubits - 1),
+                np.array(
+                    [[1.0], *[[0]] * (qudit_dimension - 1)], dtype=np.complex64
+                ),
+                name=tensor_prefix + str(nqudits - 1),
             )
         )
 
         # Connect edges between middle nodes
-        for i in range(1, nqubits - 2):
+        for i in range(1, nqudits - 2):
             tn.connect(nodes[i].get_edge(2), nodes[i + 1].get_edge(1))
 
         # Connect end nodes to the adjacent middle nodes
-        if nqubits < 3:
+        if nqudits < 3:
             tn.connect(nodes[0].get_edge(1), nodes[1].get_edge(1))
         else:
             tn.connect(nodes[0].get_edge(1), nodes[1].get_edge(1))
             tn.connect(nodes[-1].get_edge(1), nodes[-2].get_edge(2))
 
-        self._nqubits = nqubits
+        self._nqudits = nqudits
+        self._qudit_dimension = qudit_dimension
         self._prefix = tensor_prefix
         self._nodes = nodes
         self._max_bond_dimensions = [
-            2 ** (i + 1) for i in range(self._nqubits // 2)
+            self._qudit_dimension ** (i + 1) for i in range(self._nqudits // 2)
         ]
         self._max_bond_dimensions += list(reversed(self._max_bond_dimensions))
-        if self._nqubits % 2 == 0:
-            self._max_bond_dimensions.remove(2 ** (self._nqubits // 2))
+        if self._nqudits % 2 == 0:
+            self._max_bond_dimensions.remove(
+                self._qudit_dimension ** (self._nqudits // 2)
+            )
         self._infidelities = []  # type: List[float]
         self._fidelities = []  # type: List[float]
 
     @property
-    def nqubits(self):
-        return self._nqubits
+    def nqudits(self) -> int:
+        """Returns the number of qudits in the MPS."""
+        return self._nqudits
+
+    @property
+    def qudit_dimension(self) -> int:
+        """Returns the dimension of each qudit in the MPS."""
+        return self._qudit_dimension
 
     def get_bond_dimension_of(self, index: int) -> int:
         """Returns the bond dimension of the right edge of the node
@@ -96,9 +118,9 @@ class MPS:
         """
         if not self.is_valid():
             raise ValueError("MPS is invalid.")
-        if index >= self._nqubits:
+        if index >= self._nqudits:
             raise ValueError(
-                f"Index should be less than {self._nqubits} but is {index}."
+                f"Index should be less than {self._nqudits} but is {index}."
             )
 
         left = self.get_node(index, copy=False)
@@ -109,7 +131,7 @@ class MPS:
 
     def get_bond_dimensions(self) -> List[int]:
         """Returns the bond dimensions of the MPS."""
-        return [self.get_bond_dimension_of(i) for i in range(self._nqubits - 1)]
+        return [self.get_bond_dimension_of(i) for i in range(self._nqudits - 1)]
 
     def get_max_bond_dimension_of(self, index: int) -> int:
         """Returns the maximum bond dimension of the right edge
@@ -121,9 +143,9 @@ class MPS:
                 of the given node.
                 Negative indices count backwards from the right of the MPS.
         """
-        if index >= self._nqubits:
+        if index >= self._nqudits:
             raise ValueError(
-                f"Index should be less than {self._nqubits} but is {index}."
+                f"Index should be less than {self._nqudits} but is {index}."
             )
         return self._max_bond_dimensions[index]
 
@@ -210,7 +232,8 @@ class MPS:
         if set(fin.get_all_dangling()) != set(fin.get_all_edges()):
             raise ValueError("Invalid MPS.")
 
-        return np.reshape(fin.tensor, newshape=(2 ** self._nqubits))
+        return np.reshape(
+            fin.tensor, newshape=(self._qudit_dimension ** self._nqudits))
 
     def norm(self) -> float:
         """Returns the norm of the MPS computed by contraction."""
@@ -219,12 +242,12 @@ class MPS:
         for n in b:
             n.set_tensor(np.conj(n.tensor))
 
-        for i in range(self._nqubits):
+        for i in range(self._nqudits):
             tn.connect(
                 a[i].get_all_dangling().pop(), b[i].get_all_dangling().pop()
             )
 
-        for i in range(self._nqubits - 1):
+        for i in range(self._nqudits - 1):
             # TODO: Optimize by flattening edges
             mid = tn.contract_between(a[i], b[i])
             new = tn.contract_between(mid, a[i + 1])
@@ -246,10 +269,10 @@ class MPS:
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
 
-        if index not in range(self._nqubits):
+        if index not in range(self._nqudits):
             raise ValueError(
                 f"Input tensor index={index} is out of bounds for"
-                f" an MPS on {self._nqubits} qubits."
+                f" an MPS on {self._nqudits} qubits."
             )
 
         if (len(gate.get_all_dangling()) != 2
@@ -274,8 +297,64 @@ class MPS:
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
         """
-        for i in range(self._nqubits):
+        for i in range(self._nqudits):
             self.apply_one_qubit_gate(gate, i)
+
+    def move_node_from_left_to_right(
+            self, current_node_index: int, final_node_index: int, **kwargs
+    ) -> None:
+        """Moves the MPS node at current_node_index to the final_node_index by
+        implementing a sequence of SWAP gates from left to right.
+        
+        Args:
+            current_node_index: Index of the node to move from left to right.
+            final_node_index: Final index location of the node to move.
+        """
+        if current_node_index > final_node_index:
+            raise ValueError(
+                "current_node_index should be smaller than final_node_index."
+            )
+
+        if current_node_index < 0:
+            raise ValueError("current_node_index out of range.")
+
+        if final_node_index >= self._nqudits:
+            raise ValueError("final_node_index out of range.")
+
+        if current_node_index == final_node_index:
+            return
+
+        while current_node_index < final_node_index:
+            self.swap(current_node_index, current_node_index + 1, **kwargs)
+            current_node_index += 1
+
+    def move_node_from_right_to_left(
+            self, current_node_index: int, final_node_index: int, **kwargs
+    ) -> None:
+        """Moves the MPS node at current_node_index to the final_node_index by
+        implementing a sequence of SWAP gates from right to left.
+
+        Args:
+            current_node_index: Index of the node to move from right to left.
+            final_node_index: Final index location of the node to move.
+        """
+        if current_node_index < final_node_index:
+            raise ValueError(
+                "current_node_index should be larger than final_node_index."
+            )
+
+        if current_node_index > self._nqudits:
+            raise ValueError("current_node_index out of range.")
+
+        if final_node_index < 0:
+            raise ValueError("final_node_index out of range.")
+
+        if current_node_index == final_node_index:
+            return
+
+        while current_node_index > final_node_index:
+            self.swap(current_node_index - 1, current_node_index, **kwargs)
+            current_node_index -= 1
 
     def apply_two_qubit_gate(
         self, gate: tn.Node, indexA: int, indexB: int, **kwargs
@@ -318,20 +397,15 @@ class MPS:
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
 
-        if (indexA not in range(self._nqubits)
-                or indexB not in range(self.nqubits)):
+        if (indexA not in range(self._nqudits)
+                or indexB not in range(self.nqudits)):
             raise ValueError(
                 f"Input tensor indices={(indexA, indexB)} are out of bounds"
-                f" for an MPS on {self._nqubits} qubits."
+                f" for an MPS on {self._nqudits} qubits."
             )
 
         if indexA == indexB:
             raise ValueError("Input indices cannot be identical.")
-
-        if abs(indexA - indexB) != 1:
-            raise ValueError(
-                "Indices must be for adjacent tensors (must differ by one)."
-            )
 
         if (len(gate.get_all_dangling()) != 4
                 or len(gate.get_all_nondangling()) != 0):
@@ -339,6 +413,14 @@ class MPS:
                 "Two qubit gate must have four free edges"
                 " and zero connected edges."
             )
+
+        # Swap tensors until adjacent if necessary
+        invert_swap_network = False
+        if abs(indexA - indexB) != 1:
+            invert_swap_network = True
+            original_indexA = indexA
+            self.move_node_from_left_to_right(indexA, indexB - 1)
+            indexA = indexB - 1
 
         # Connect the MPS tensors to the gate edges
         if indexA < indexB:
@@ -458,6 +540,10 @@ class MPS:
         self._nodes[left_index] = new_left
         self._nodes[right_index] = new_right
 
+        # Invert the Swap network, if necessary
+        if invert_swap_network:
+            self.move_node_from_right_to_left(indexA, original_indexA)
+
         self._fidelities.append(self.norm())
 
     def apply_mps_operation(
@@ -487,13 +573,13 @@ class MPS:
                 "Only one-qudit and two-qudit gates are currently supported."
             )
 
-    def apply_all_mps_operations(
-            self, mps_operations: List[MPSOperation], **kwargs
+    def apply_mps_operations(
+            self, mps_operations: Sequence[MPSOperation], **kwargs
     ):
-        """Applies the MPS Operation to the MPS.
+        """Applies the sequence of MPS Operations to the MPS.
 
         Args:
-            mps_operation: Valid MPS Operation to apply to the MPS.
+            mps_operations: List of valid MPS Operations to apply to the MPS.
 
         Keyword Args:
             See MPS.apply_two_qubit_gate.
@@ -501,6 +587,7 @@ class MPS:
         for mps_operation in mps_operations:
             self.apply_mps_operation(mps_operation, **kwargs)
 
+    # TODO: Remove single qubit gates -- these don't generalize to qudits.
     def x(self, index: int) -> None:
         """Applies a NOT (Pauli-X) gate to a qubit specified by the index.
 
@@ -538,13 +625,14 @@ class MPS:
             angle_scale: Floating point value to scale angles by. Default 1.
         """
         if index == -1:
-            for i in range(self._nqubits):
+            for i in range(self._nqudits):
                 self.apply_one_qubit_gate(
                     rgate(seed, angle_scale), i,
                 )
         else:
             self.apply_one_qubit_gate(rgate(seed, angle_scale), index)
 
+    # TODO: Remove. This doesn't generalize to qudits.
     def cnot(self, a: int, b: int, **kwargs) -> None:
         """Applies a CNOT gate with qubit indexed `a` as control
         and qubit indexed `b` as target.
@@ -555,18 +643,20 @@ class MPS:
         """Applies a layer of CNOTs between adjacent qubits
         going from left to right.
         """
-        for i in range(0, self._nqubits - 1, 2):
+        for i in range(0, self._nqudits - 1, 2):
             self.cnot(i, i + 1, keep_left_canonical=True, **kwargs)
 
     def sweep_cnots_right_to_left(self, **kwargs) -> None:
         """Applies a layer of CNOTs between adjacent qubits
          going from right to left.
          """
-        for i in range(self._nqubits - 2, 0, -2):
+        for i in range(self._nqudits - 2, 0, -2):
             self.cnot(i - 1, i, keep_left_canonical=False, **kwargs)
 
     def swap(self, a: int, b: int, **kwargs) -> None:
         """Applies a SWAP gate between qubits indexed `a` and `b`."""
+        if b < a:
+            a, b = b, a
         self.apply_two_qubit_gate(swap(), a, b, **kwargs)
 
     def __str__(self):
