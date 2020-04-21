@@ -284,7 +284,7 @@ class MPS:
 
         # Connect the MPS and gate edges
         mps_edge = list(self._nodes[index].get_all_dangling())[0]
-        gate_edge = gate[0]
+        gate_edge = gate[1]  # TODO: Is this the correct edge to use (always)?
         connected = tn.connect(mps_edge, gate_edge)
 
         # Contract the edge to get the new tensor

@@ -8,7 +8,7 @@ from cirq.sim import (
 )
 
 from mpsim.core import MPS
-from mpsim.mpsim_cirq.circuits import MPSimCircuit
+from mpsim.mpsim_cirq.circuits import MPSimCircuit, MPSOperation
 
 
 class MPSimulator(SimulatesFinalState):
@@ -69,10 +69,12 @@ class MPSimulator(SimulatesFinalState):
                 f"Program is of type {type(program)} but should be either"
                 " a cirq.Circuit or mpsim.mpsim_cirq.MPSimCircuit."
             )
-        if isinstance(program, Circuit):
-            program = MPSimCircuit(
-                program, device=program.device
-            )
+        # TODO: This throws an error if any gates are parameterized because
+        #  these parameterized gates will not have a _unitary_ method.
+        # if isinstance(program, Circuit):
+        #     program = MPSimCircuit(
+        #         program, device=program.device
+        #     )
 
         param_resolvers = study.to_resolvers(params)
 
@@ -80,18 +82,20 @@ class MPSimulator(SimulatesFinalState):
         for prs in param_resolvers:
             solved_circuit = protocols.resolve_parameters(program, prs)
 
-            # TODO: Account for qubit ordering
-            # ordered_qubits = ops.QubitOrder.as_qubit_order(
-            #     qubit_order).order_for(
-            #     solved_circuit.all_qubits())
-            #
-            # qubit_map = {
-            #     qubit: index for index, qubit in enumerate(ordered_qubits)
-            # }
+            ordered_qubits = ops.QubitOrder.as_qubit_order(
+                qubit_order).order_for(
+                solved_circuit.all_qubits())
+
+            qubit_to_index_map = {
+                qubit: index for index, qubit in enumerate(ordered_qubits)
+            }
 
             mps = MPS(nqudits=len(solved_circuit.all_qubits()))
-            mps.apply_mps_operations(
-                solved_circuit._mps_operations, **self._options
-            )
+            # TODO: Account for an input ordering of operations to apply here
+            for gate_operation in solved_circuit.all_operations():
+                mps_operation = MPSOperation.from_gate_operation(
+                    gate_operation, qubit_to_index_map
+                )
+                mps.apply_mps_operation(mps_operation, **self._options)
             trial_results.append(mps)
         return trial_results

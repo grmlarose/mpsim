@@ -54,7 +54,7 @@ class MPSOperation:
                 If the gate operation does not have a _unitary_ method.
         """
         num_qudits = len(operation.qubits)
-        qudit_dimension = 2
+        qudit_dimension = 2  # TODO: Check if all Cirq ops are qubit ops
         qudit_indices = tuple(
             [qudit_to_index_map[qudit] for qudit in operation.qubits]
         )

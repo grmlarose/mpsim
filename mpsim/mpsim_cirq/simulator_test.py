@@ -1,11 +1,12 @@
 """Unit tests for MPSimulator."""
 
 import numpy as np
+import sympy
 
 import cirq
 
 from mpsim import MPS
-from mpsim.mpsim_cirq.circuits import MPSimCircuit
+from mpsim.mpsim_cirq.circuits import MPSimCircuit, MPSOperation
 from mpsim.mpsim_cirq.simulator import MPSimulator
 
 
@@ -120,3 +121,24 @@ def test_simulate_qft_circuit():
         cirq_wavefunction = circ.final_wavefunction()
         mps_wavefunction = MPSimulator().simulate(circ).wavefunction
         assert np.allclose(mps_wavefunction, cirq_wavefunction)
+
+
+def test_two_qubit_parameterized_circuit_single_parameter():
+    """Tests a two-qubit circuit with a single parameter."""
+    theta_name, theta_value = "theta", 1.0
+    theta = sympy.Symbol(name=theta_name)
+    qreg = cirq.LineQubit.range(2)
+    circ = cirq.Circuit(
+        cirq.Ry(theta).on(qreg[0]),
+        cirq.CNOT.on(*qreg)
+    )
+
+    sim = MPSimulator()
+    mps = sim.simulate(
+        circ, param_resolver=cirq.ParamResolver({theta_name: theta_value})
+    )
+    solved_circuit = cirq.Circuit(
+        cirq.Ry(theta_value).on(qreg[0]),
+        cirq.CNOT.on(*qreg)
+    )
+    assert np.allclose(mps.wavefunction, solved_circuit.final_wavefunction())
