@@ -72,7 +72,7 @@ def test_simulate_bell_state_cirq_circuit_with_truncation():
     )
 
 
-def test_simulate_one_dimension_supremacy_circuit():
+def test_simulate_one_dimensional_supremacy_circuit():
     """Tests simulating a one-dimensional supremacy circuit
     using the MPSimulator.
     """
@@ -86,3 +86,37 @@ def test_simulate_one_dimension_supremacy_circuit():
     res = sim.simulate(circuit)
     assert isinstance(res, MPS)
     assert np.isclose(res.norm(), 1.)
+
+
+def test_simulate_ghz_circuits():
+    """Tests simulating GHZ circuits on multiple qubits."""
+    for n in range(3, 10):
+        qreg = cirq.LineQubit.range(n)
+        circ = cirq.Circuit(
+            [cirq.ops.H.on(qreg[0])],
+            [cirq.ops.CNOT.on(qreg[0], qreg[i]) for i in range(1, n)]
+        )
+        cirq_wavefunction = circ.final_wavefunction()
+        mps_wavefunction = MPSimulator().simulate(circ).wavefunction
+        assert np.allclose(mps_wavefunction, cirq_wavefunction)
+
+
+def test_simulate_qft_circuit():
+    """Tests simulating the QFT circuit on multiple qubits."""
+    for n in range(3, 10):
+        qreg = cirq.LineQubit.range(n)
+        circ = cirq.Circuit()
+
+        # Add the gates for the QFT
+        for i in range(n - 1, -1, -1):
+            circ.append(cirq.ops.H.on(qreg[i]))
+            for j in range(i - 1, -1, -1):
+                circ.append(
+                    cirq.ops.CZPowGate(exponent=2**(j - i)).on(
+                        qreg[j], qreg[i]))
+        assert len(list(circ.all_operations())) == n * (n + 1) // 2
+
+        # Check correctness
+        cirq_wavefunction = circ.final_wavefunction()
+        mps_wavefunction = MPSimulator().simulate(circ).wavefunction
+        assert np.allclose(mps_wavefunction, cirq_wavefunction)
