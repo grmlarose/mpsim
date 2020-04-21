@@ -35,12 +35,22 @@ def test_get_node_and_tensor_one_qubit_mps_operation():
     assert np.allclose(tensor, copy_tensor)
 
 
-def test_two_qubit_cnot_mps_operation():
-    """Unit tests for a two-qubit identity MPS Operation."""
+def test_two_qubit_mps_operation_cnot():
+    """Performs simple checks on a two-qubit CNOT MPS Operation."""
     node = mpsim.gates.cnot()
     mps_operation = MPSOperation(node, qudit_indices=(0, 1), qudit_dimension=2)
     assert mps_operation.qudit_indices == (0, 1)
     assert mps_operation.qudit_dimension == 2
+    assert not mps_operation.is_single_qudit_operation()
+    assert mps_operation.is_two_qudit_operation()
+
+
+def test_two_qubit_mps_operation_nonlocal_cnot():
+    """Performs simple checks on a two-qubit non-local CNOT MPS Operation."""
+    node = mpsim.gates.cnot()
+    mps_operation = MPSOperation(node, qudit_indices=(0, 2), qudit_dimension=2)
+    assert mps_operation.qudit_indices == (0, 2)
+    assert mps_operation.is_valid()
     assert not mps_operation.is_single_qudit_operation()
     assert mps_operation.is_two_qudit_operation()
 
@@ -72,6 +82,20 @@ def test_mps_operation_from_gate_operation_zz_gate():
     assert mps_operation.is_valid()
     assert mps_operation.is_two_qudit_operation()
     assert mps_operation.qudit_indices == (0, 1)
+    assert np.allclose(mps_operation.tensor(), operation._unitary_())
+
+
+def test_mps_operation_from_gate_operation_nonlocal_cnot():
+    """Tests converting a non-local CNOT to an MPS Operation."""
+    qreg = cirq.LineQubit.range(3)
+    operation = cirq.ops.CNOT.on(qreg[0], qreg[2])
+    qubit_to_indices_map = {qreg[i]: i for i in range(len(qreg))}
+
+    mps_operation = MPSOperation.from_gate_operation(
+        operation, qubit_to_indices_map
+    )
+    assert mps_operation.is_valid()
+    assert mps_operation.qudit_indices == (0, 2)
     assert np.allclose(mps_operation.tensor(), operation._unitary_())
 
 
@@ -142,8 +166,8 @@ def test_two_qubit_circuit_unconstrained_device():
     assert mps_operations[1].qudit_indices == (0, 1)
 
 
-def test_convert_and_simulate_circuit_two_qubits():
-    """Performs tests on the following.
+def test_convert_and_manually_simulate_circuit_two_qubits():
+    """Tests the following:
 
     1. Converting a Cirq circuit to an MPSimCircuit.
     2. Applying MPS Operations in the MPSimCircuit to
@@ -162,10 +186,42 @@ def test_convert_and_simulate_circuit_two_qubits():
     mps_operations = mpsim_circuit._mps_operations
 
     # Apply the MPSOperation's from the MPSimCircuit
-    mps = mpsim.MPS(nqubits=2)
+    mps = mpsim.MPS(nqudits=2)
     for mps_op in mps_operations:
         mps.apply_mps_operation(mps_op)
 
     # Check correctness for the final wavefunction
     correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 1.])
+    assert np.allclose(mps.wavefunction, correct)
+
+
+def test_convert_and_manually_simulate_circuit_nonlocal_operations_ghz_state():
+    """Tests the following:
+
+    1. Converting a Cirq circuit with non-local operations to an MPSimCircuit.
+    2. Applying MPS Operations in the MPSimCircuit to
+        an MPS starting in the all zero state, checking
+        for corrections.
+    """
+    # Define the Cirq circuit
+    qreg = cirq.LineQubit.range(3)
+    gate_operations = [
+        cirq.ops.H.on(qreg[0]),
+        cirq.ops.CNOT.on(qreg[0], qreg[1]),
+        cirq.ops.CNOT.on(qreg[0], qreg[-1])
+    ]
+    cirq_circuit = cirq.Circuit(gate_operations)
+
+    # Convert to an MPSimCircuit
+    mpsim_circuit = MPSimCircuit(cirq_circuit)
+    mps_operations = mpsim_circuit._mps_operations
+
+    # Apply the MPSOperation's from the MPSimCircuit
+    mps = mpsim.MPS(nqudits=3)
+    for mps_op in mps_operations:
+        mps.apply_mps_operation(mps_op)
+
+    # Check correctness for the final wavefunction
+    correct = np.zeros(shape=(8,))
+    correct[0] = correct[-1] = 1. / np.sqrt(2)
     assert np.allclose(mps.wavefunction, correct)

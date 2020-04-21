@@ -92,16 +92,16 @@ class MPSOperation:
         node_dict, _ = copy([self._node])
         return node_dict[self._node]
 
-    def tensor(self, square: bool = True) -> np.ndarray:
+    def tensor(self, reshape_to_square_matrix: bool = True) -> np.ndarray:
         """Returns the tensor of the MPS Operation.
 
         Args:
-            square: If True, the shape of the returned tensor is dim x dim where
-                    dim is the qudit dimension raised to the number of qudits
-                    that the MPS Operator acts on.
+            reshape_to_square_matrix: If True, the shape of the returned tensor
+                    is dim x dim where dim is the qudit dimension raised
+                    to the number of qudits that the MPS Operator acts on.
         """
         tensor = deepcopy(self._node.tensor)
-        if square:
+        if reshape_to_square_matrix:
             dim = self._qudit_dimension ** self.num_qudits
             tensor = np.reshape(
                 tensor, newshape=(dim, dim)
