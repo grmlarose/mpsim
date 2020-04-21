@@ -206,3 +206,34 @@ def test_parameterized_local_two_qubit_gates():
         mps = sim.simulate(circ, dict(zip(symbols, values)))
 
         assert np.allclose(mps.wavefunction, cirq_wavefunction)
+
+
+def test_parameterized_nonlocal_two_qubit_gates():
+    """Tests a non-local two-qubit gate with a parameter."""
+    rng = np.random.RandomState(seed=1)
+    symbols = [sympy.Symbol("theta")]
+    qreg = cirq.LineQubit.range(3)
+
+    num_tests = 20
+    for _ in range(num_tests):
+        values = list(rng.rand(1))
+        circ = cirq.Circuit(
+            cirq.ops.H.on(qreg[0]),
+            cirq.ops.X.on(qreg[1]),
+            cirq.ops.CZPowGate(exponent=symbols[0]).on(qreg[0], qreg[2]),
+        )
+        print(circ)
+
+        # Get the final wavefunction using the Cirq Simulator
+        solved_circuit = cirq.Circuit(
+            cirq.ops.H.on(qreg[0]),
+            cirq.ops.X.on(qreg[1]),
+            cirq.ops.CZPowGate(exponent=values[0]).on(qreg[0], qreg[2]),
+        )
+        cirq_wavefunction = solved_circuit.final_wavefunction()
+
+        # Get the final wavefunction using the MPS Simulator
+        sim = MPSimulator()
+        mps = sim.simulate(circ, dict(zip(symbols, values)))
+
+        assert np.allclose(mps.wavefunction, cirq_wavefunction)
