@@ -939,8 +939,8 @@ def test_apply_qft_nonlocal_gates():
         mps = MPS(nqudits=n)
         for i in range(n - 1, -1, -1):
             mps.h(i)
-            for j in range(i - 1, 0, -1):
-                mps.apply_two_qubit_gate(cphase(2**(i - j)), j, i)
+            for j in range(i - 1, -1, -1):
+                mps.apply_two_qubit_gate(cphase(2**(j - i)), j, i)
         correct = np.ones(shape=(2**n,))
         correct /= 2**(n / 2)
         assert np.allclose(mps.wavefunction, correct)

@@ -89,8 +89,8 @@ class MPSimulator(SimulatesFinalState):
             #     qubit: index for index, qubit in enumerate(ordered_qubits)
             # }
 
-            mps = MPS(nqubits=len(solved_circuit.all_qubits()))
-            mps.apply_all_mps_operations(
+            mps = MPS(nqudits=len(solved_circuit.all_qubits()))
+            mps.apply_mps_operations(
                 solved_circuit._mps_operations, **self._options
             )
             trial_results.append(mps)
