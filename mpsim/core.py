@@ -1,6 +1,6 @@
 """Defines matrix product state class."""
 
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import numpy as np
 import tensornetwork as tn
@@ -566,10 +566,10 @@ class MPS:
                 "Only one-qudit and two-qudit gates are currently supported."
             )
 
-    def apply_all_mps_operations(
-            self, mps_operations: List[MPSOperation], **kwargs
+    def apply_mps_operations(
+            self, mps_operations: Sequence[MPSOperation], **kwargs
     ):
-        """Applies the MPS Operation to the MPS.
+        """Applies the sequence of MPS Operations to the MPS.
 
         Args:
             mps_operations: List of valid MPS Operations to apply to the MPS.

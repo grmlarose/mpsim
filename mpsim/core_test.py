@@ -602,7 +602,7 @@ def test_move_node_right_to_left_then_apply_two_qubit_gate():
     assert np.allclose(mps.wavefunction, correct)
 
 
-def test_move_left_apply_gate_then_move_right():
+def test_move_right_apply_gate_then_move_left():
     """Tests applying a non-adjacent two-qubit gate by moving nodes around
     by swapping. In particular, tests CNOT between the first and last qubits
     in a 3-10 qubit MPS.
@@ -610,8 +610,12 @@ def test_move_left_apply_gate_then_move_right():
     for n in range(3, 10 + 1):
         mps = MPS(nqudits=n)
         mps.x(0)                                    # State: |100>
+
+        # Do SWAPs to implement a non-local gate
         mps.move_node_from_left_to_right(0, n - 2)  # State: |010>
         mps.cnot(n - 2, n - 1)                      # State: |011>
+
+        # Invert the SWAP network
         mps.move_node_from_right_to_left(n - 2, 0)  # State: |101>
         correct = np.zeros(shape=(2**n,))
         correct[2**(n - 1) + 1] = 1.
