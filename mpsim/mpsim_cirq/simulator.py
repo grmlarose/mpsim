@@ -70,7 +70,10 @@ class MPSimulator(SimulatesFinalState):
                 " a cirq.Circuit or mpsim.mpsim_cirq.MPSimCircuit."
             )
         # TODO: This throws an error if any gates are parameterized because
-        #  these parameterized gates will not have a _unitary_ method.
+        #  these parameterized gates will not have a _unitary_ method until
+        #  they are solved by
+        #  param_resolvers = study.to_resolvers(params)
+        #  solved_circuit = protocols.resolve_parameters(program, prs)
         # if isinstance(program, Circuit):
         #     program = MPSimCircuit(
         #         program, device=program.device

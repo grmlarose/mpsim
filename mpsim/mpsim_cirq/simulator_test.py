@@ -5,6 +5,8 @@ import sympy
 
 import cirq
 
+import pytest
+
 from mpsim import MPS
 from mpsim.mpsim_cirq.circuits import MPSimCircuit, MPSOperation
 from mpsim.mpsim_cirq.simulator import MPSimulator
@@ -222,7 +224,6 @@ def test_parameterized_nonlocal_two_qubit_gates():
             cirq.ops.X.on(qreg[1]),
             cirq.ops.CZPowGate(exponent=symbols[0]).on(qreg[0], qreg[2]),
         )
-        print(circ)
 
         # Get the final wavefunction using the Cirq Simulator
         solved_circuit = cirq.Circuit(
@@ -237,3 +238,15 @@ def test_parameterized_nonlocal_two_qubit_gates():
         mps = sim.simulate(circ, dict(zip(symbols, values)))
 
         assert np.allclose(mps.wavefunction, cirq_wavefunction)
+
+
+def test_three_qubit_gate_raise_value_error():
+    """Tests that a ValueError is raised when attempting to simulate a circuit
+    with a three-qubit gate in it.
+    """
+    qreg = [cirq.GridQubit(x, 0) for x in range(3)]
+    circ = cirq.Circuit(
+        cirq.ops.TOFFOLI.on(*qreg)
+    )
+    with pytest.raises(ValueError):
+        MPSimulator().simulate(circ)

@@ -40,7 +40,7 @@ class MPS:
                 f"Number of qudits must be greater than 2 but is {nqudits}."
             )
 
-        # Get nodes on the interior
+        # Set nodes on the interior
         nodes = [
             tn.Node(
                 np.array(
@@ -52,7 +52,7 @@ class MPS:
             for x in range(nqudits - 2)
         ]
 
-        # Get nodes on the edges
+        # Set nodes on the left and right edges
         nodes.insert(
             0,
             tn.Node(
@@ -71,11 +71,11 @@ class MPS:
             )
         )
 
-        # Connect edges between middle nodes
+        # Connect edges between interior nodes
         for i in range(1, nqudits - 2):
             tn.connect(nodes[i].get_edge(2), nodes[i + 1].get_edge(1))
 
-        # Connect end nodes to the adjacent middle nodes
+        # Connect edge nodes to their neighbors
         if nqudits < 3:
             tn.connect(nodes[0].get_edge(1), nodes[1].get_edge(1))
         else:
@@ -94,7 +94,6 @@ class MPS:
             self._max_bond_dimensions.remove(
                 self._qudit_dimension ** (self._nqudits // 2)
             )
-        self._infidelities = []  # type: List[float]
         self._fidelities = []  # type: List[float]
 
     @property
@@ -520,11 +519,6 @@ class MPS:
             max_singular_values=maxsvals,
         )
 
-        # Store the truncated infidelities
-        self._infidelities.append(
-            np.real(sum(np.conj(x) * x for x in truncated_svals))
-        )
-
         # Contract the tensors to keep left or right canonical form
         if keep_left_canonical:
             new_left = u
@@ -544,6 +538,7 @@ class MPS:
         if invert_swap_network:
             self.move_node_from_right_to_left(indexA, original_indexA)
 
+        # TODO: Remove. This is only for convenience in benchmarking.
         self._fidelities.append(self.norm())
 
     def apply_mps_operation(
@@ -562,7 +557,7 @@ class MPS:
 
         if mps_operation.is_single_qudit_operation():
             self.apply_one_qubit_gate(
-                mps_operation.node, mps_operation.qudit_indices[0]
+                mps_operation.node, *mps_operation.qudit_indices
             )
         elif mps_operation.is_two_qudit_operation():
             self.apply_two_qubit_gate(
