@@ -116,6 +116,71 @@ def test_get_bond_dimensions_product_state():
         assert mps.get_bond_dimensions() == [1] * (n - 1)
 
 
+def test_get_free_edge_of():
+    """Tests getting the free edge of nodes in an MPS."""
+    for n in range(2, 10):
+        for d in (2, 3, 4):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            for i in range(n):
+                free_edge = mps.get_free_edge_of(i, copy=False)
+                assert free_edge.is_dangling()
+                assert free_edge.node1.name == f"q{i}"
+
+
+def test_get_left_connected_edge():
+    """Tests getting the left connected edge of nodes in an MPS."""
+    for d in (2, 3, 4):
+        mps = MPS(nqudits=3, qudit_dimension=d)
+
+        # Left edge of first node should be None
+        edge = mps.get_left_connected_edge_of(0)
+        assert edge is None
+
+        # Left edge of second node
+        edge = mps.get_left_connected_edge_of(1)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q0"
+        assert edge.node2.name == "q1"
+
+        # Left edge of third node
+        edge = mps.get_left_connected_edge_of(2)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q2"
+        assert edge.node2.name == "q1"
+
+
+def test_get_right_connected_edge():
+    """Tests getting the left connected edge of nodes in an MPS."""
+    for d in (2, 3, 4):
+        mps = MPS(nqudits=3, qudit_dimension=d)
+
+        # Right edge of first node
+        edge = mps.get_right_connected_edge_of(0)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q0"
+        assert edge.node2.name == "q1"
+
+        # Right edge of second node
+        edge = mps.get_right_connected_edge_of(1)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q2"
+        assert edge.node2.name == "q1"
+
+        # Right edge of third node should be None
+        edge = mps.get_right_connected_edge_of(2)
+        assert edge is None
+
+
+def test_get_left_and_get_right_connected_edges():
+    """Tests correctness of getting left edges and getting right edges."""
+    n = 10
+    for d in (2, 3, 4):
+        mps = MPS(nqudits=n, qudit_dimension=d)
+        for i in range(1, n - 1):
+            assert (mps.get_right_connected_edge_of(i - 1) ==
+                    mps.get_left_connected_edge_of(i))
+
+
 def test_get_wavefunction_simple_qubits():
     """Tests getting the wavefunction of a simple qubit MPS."""
     mps = MPS(nqudits=3)

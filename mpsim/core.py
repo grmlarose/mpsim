@@ -1,11 +1,11 @@
 """Defines matrix product state class."""
 
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Union
 
 import numpy as np
 import tensornetwork as tn
 
-from mpsim.gates import hgate, rgate, xgate, cnot, swap
+from mpsim.gates import hgate, rgate, xgate, cnot, swap, is_unitary
 from mpsim.mpsim_cirq.circuits import MPSOperation
 
 
@@ -202,7 +202,6 @@ class MPS:
         """
         return self.get_nodes(copy)[i]
 
-    # TODO: Add unit tests for!
     def get_free_edge_of(self, index: int, copy: bool = True) -> tn.Edge:
         """Returns the free (dangling) edge of a node with specified index.
         
@@ -213,11 +212,33 @@ class MPS:
         """
         return self.get_node(index, copy).get_all_dangling().pop()
 
+    def get_left_connected_edge_of(self, index: int) -> Union[tn.Edge, None]:
+        """Returns the left connected edge of the specified node, if it exists.
+
+        Args:
+            index: Index of node to get the left connected edge of.
+        """
+        if index == 0:
+            return None
+        return tn.get_shared_edges(
+            self._nodes[index], self._nodes[index - 1]
+        ).pop()
+
+    def get_right_connected_edge_of(self, index: int) -> Union[tn.Edge, None]:
+        """Returns the left connected edge of the specified node, if it exists.
+
+        Args:
+            index: Index of node to get the right connected edge of.
+        """
+        if index == self._nqudits - 1:
+            return None
+        return tn.get_shared_edges(
+            self._nodes[index], self._nodes[index + 1]
+        ).pop()
+
     @property
     def wavefunction(self) -> np.array:
-        """Returns the wavefunction of a valid MPS as a (potentially giant)
-        vector by contracting all virtual indices.
-        """
+        """Returns the wavefunction of the MPS as a vector."""
         if not self.is_valid():
             raise ValueError("MPS is not valid.")
 
@@ -232,7 +253,8 @@ class MPS:
             raise ValueError("Invalid MPS.")
 
         return np.reshape(
-            fin.tensor, newshape=(self._qudit_dimension ** self._nqudits))
+            fin.tensor, newshape=(self._qudit_dimension ** self._nqudits)
+        )
 
     def norm(self) -> float:
         """Returns the norm of the MPS computed by contraction."""
@@ -289,6 +311,27 @@ class MPS:
         # Contract the edge to get the new tensor
         new = tn.contract(connected, name=self._nodes[index].name)
         self._nodes[index] = new
+
+        # TODO: Orthonamalize the index if the gate is non-unitary
+        if not is_unitary(gate):
+            pass
+
+    def _orthonormalize_edge(self, edge_index: int) -> None:
+        """Performs SVD on a single node N to get N = U S V^dag. Sets the new
+        node to be U and multiplies the node to the right by S V^dag.
+
+        Args:
+            edge_index: Index of edge to orthonormalize.
+        """
+        node = self.get_node(edge_index, copy=False)
+        left_edges = []
+        right_edges = []
+
+        u, s, vdag, truncated_svals = tn.split_node_full_svd(
+            node,
+            left_edges=left_edges,
+            right_edges=right_edges,
+        )
 
     def apply_one_qubit_gate_to_all(self, gate: tn.Node) -> None:
         """Applies a single qubit gate to all tensors in the MPS.
