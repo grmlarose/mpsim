@@ -18,7 +18,7 @@ from mpsim.gates import (
 
 
 def test_is_unitary():
-    """Tests that common gates are unitary."""
+    """Tests that common qubit gates are unitary."""
     for gate in (igate(), hgate(), xgate(), ygate(), zgate(), cnot()):
         assert is_unitary(gate)
 
