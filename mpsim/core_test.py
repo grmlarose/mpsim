@@ -798,7 +798,6 @@ def test_qubit_hopping_left_to_right_and_back():
      several n-qubit MPS states.
      """
     for n in range(2, 20):
-        print("Status: n =", n)
         mps = MPS(n)
         mps.x(0)
         for i in range(n - 1):
@@ -1160,3 +1159,21 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
     assert np.isclose(mps.norm(), 0.5)
     assert np.allclose(mps.wavefunction, correct)
     assert mps.get_bond_dimensions() == [1]
+
+
+def test_orthonormalize_all_tensors_edge_cases():
+    """Tests orthonormalizing all tensors in an MPS and ensures the MPS remains
+    valid after.
+    """
+    for n in range(2, 8):
+        for d in (2, 3, 4):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            correct = mps.wavefunction
+            for node_index in range(n - 1):
+                mps.orthonormalize_right_edge_of(node_index)
+                assert mps.is_valid()
+                assert np.allclose(mps.wavefunction, correct)
+            for node_index in range(1, n):
+                mps.orthonormalize_left_edge_of(node_index)
+                assert mps.is_valid()
+                assert np.allclose(mps.wavefunction, correct)

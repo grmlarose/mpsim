@@ -339,12 +339,9 @@ class MPS:
                     index, new_edge_dimension=new_left_edge_dimension
                 )
             else:
-                print("Ortho-ing right")
                 self.orthonormalize_right_edge_of(
                     index, new_edge_dimension=new_right_edge_dimension
                 )
-                assert self.is_valid()
-                print("Ortho-ing left")
                 self.orthonormalize_left_edge_of(
                     index, new_edge_dimension=new_left_edge_dimension
                 )
