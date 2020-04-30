@@ -698,6 +698,7 @@ class MPS:
         # TODO: Remove. This is only for convenience in benchmarking.
         self._fidelities.append(self.norm())
 
+    # TODO: Take single qudit gate application kwargs/options into account
     def apply_mps_operation(
             self, mps_operation: MPSOperation, **kwargs
     ) -> None:

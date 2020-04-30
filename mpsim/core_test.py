@@ -1080,7 +1080,7 @@ def test_apply_povm_product_state():
     assert np.allclose(mps.wavefunction, correct)
 
 
-def test_apply_povm_bell_state_ortho_reduces_bond_dimension():
+def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
     """Tests applying a POVM + orthonormalizing the index to a bell state."""
     # Get the projector
     pi0 = computational_basis_projector(state=0)
@@ -1095,6 +1095,14 @@ def test_apply_povm_bell_state_ortho_reduces_bond_dimension():
     mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
     assert np.isclose(mps.norm(), 1.0)
     assert mps.get_bond_dimensions() == [2]
+    wavefunction_before = mps.wavefunction
+
+    # Check that orthonormalization does nothing to the Bell state
+    mps.orthonormalize_right_edge_of(node_index=0)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 1.0)
+    assert np.allclose(mps.wavefunction, wavefunction_before)
+    assert mps.get_bond_dimensions() == [2]
 
     # Apply |0><0| to the first qubit
     op = MPSOperation(pi0, (0,))
@@ -1106,7 +1114,48 @@ def test_apply_povm_bell_state_ortho_reduces_bond_dimension():
     assert mps.get_bond_dimensions() == [2]
 
     # Now do the orthonormalization to reduce the bond dimension
-    mps.orthonormalize_right_edge_of(0, new_edge_dimension=1)
+    mps.orthonormalize_right_edge_of(node_index=0, new_edge_dimension=1)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    assert np.allclose(mps.wavefunction, correct)
+    assert mps.get_bond_dimensions() == [1]
+
+
+def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
+    """Tests applying a POVM + orthonormalizing the index to a bell state."""
+    # Get the projector
+    pi0 = computational_basis_projector(state=0)
+
+    # Create an MPS in the Bell state
+    n = 2
+    mps = MPS(nqudits=n)  # State: |00>
+    mps_operations = [
+        MPSOperation(hgate(), (0,)),
+        MPSOperation(cnot(), (0, 1))
+    ]
+    mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
+    assert np.isclose(mps.norm(), 1.0)
+    assert mps.get_bond_dimensions() == [2]
+    wavefunction_before = mps.wavefunction
+
+    # Check that orthonormalization does nothing to the Bell state
+    mps.orthonormalize_left_edge_of(node_index=1)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 1.0)
+    assert np.allclose(mps.wavefunction, wavefunction_before)
+    assert mps.get_bond_dimensions() == [2]
+
+    # Apply |0><0| to the first qubit
+    op = MPSOperation(pi0, (0,))
+    mps.apply_mps_operation(op)  # State: 1 / sqrt(2) |00>
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction, correct)
+    assert mps.get_bond_dimensions() == [2]
+
+    # Now do the orthonormalization to reduce the bond dimension
+    mps.orthonormalize_left_edge_of(node_index=1, new_edge_dimension=1)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
     assert np.allclose(mps.wavefunction, correct)
