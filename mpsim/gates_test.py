@@ -6,8 +6,24 @@ import pytest
 from mpsim.gates import (
     computational_basis_projector,
     is_projector,
-    is_unitary
+    is_unitary,
+    igate,
+    hgate,
+    xgate,
+    ygate,
+    zgate,
+    cnot,
+    cphase
 )
+
+
+def test_is_unitary():
+    """Tests that common gates are unitary."""
+    for gate in (igate(), hgate(), xgate(), ygate(), zgate(), cnot()):
+        assert is_unitary(gate)
+
+    for exp in np.linspace(start=0, stop=2 * np.pi, num=100):
+        assert is_unitary(cphase(exp))
 
 
 def test_qubit_pi0_projector():

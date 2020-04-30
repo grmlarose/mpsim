@@ -19,13 +19,16 @@ def is_unitary(gate: Union[np.ndarray, tn.Node]) -> bool:
     if isinstance(gate, tn.Node):
         gate = gate.tensor
 
-    # Check that the matrix is square
-    if gate.shape[0] != gate.shape[1]:
-        return False
+    # Reshape the matrix if necessary
+    if len(gate.shape) > 2:
+        if len(set(gate.shape)) != 1:
+            raise ValueError("Gate shape should be of the form (d, d, ..., d).")
+        dim = int(np.sqrt(gate.size))
+        gate = np.reshape(gate, newshape=(dim, dim))
 
     # Check that the matrix is unitary
     return np.allclose(
-        gate.conj().T @ gate, np.identity(gate.shape[0])
+        gate.conj().T @ gate, np.identity(gate.shape[0]), atol=1e-5
     )
 
 
@@ -36,6 +39,13 @@ def is_projector(gate: Union[np.ndarray, tn.Node]) -> bool:
 
     if isinstance(gate, tn.Node):
         gate = gate.tensor
+
+    # Reshape the matrix if necessary
+    if len(gate.shape) > 2:
+        if len(set(gate.shape)) != 1:
+            raise ValueError("Gate shape should be of the form (d, d, ..., d).")
+        dim = int(np.sqrt(gate.size))
+        gate = np.reshape(gate, newshape=(dim, dim))
 
     return np.linalg.matrix_rank(gate) == 1
 
