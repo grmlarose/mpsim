@@ -29,6 +29,7 @@ _zmatrix = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=np.complex64)
 # Note that functions are used because TensorNetwork connect/contract
 # functions modify Node objects
 def igate() -> tn.Node:
+    """Returns a single qubit identity gate."""
     return tn.Node(deepcopy(_imatrix), name="igate")
 
 
@@ -80,6 +81,32 @@ def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
     # TODO: Note to Guifre diagonal elements of this unitary are always real,
     #  and off-diagonal elements are imaginary
     return tn.Node(unitary)
+
+
+def computational_basis_projector(state: int, dim: int = 2) -> tn.Node:
+    """Returns a projector onto a computational basis state which acts on a
+    single qudit of dimension dim.
+
+    Args:
+        state: Basis state to project onto.
+        dim: Dimension of the qudit. Default is two for qubits.
+
+    Raises:
+        ValueError: If state < 0, dim < 0, or state >= dim.
+    """
+    if state < 0:
+        raise ValueError(f"Argument state should be positive but is {state}.")
+
+    if dim < 0:
+        raise ValueError(f"Argument dim should be positive but is {dim}.")
+
+    if state >= dim:
+        raise ValueError(
+            f"Requires state < dim but state = {state} and dim = {dim}"
+        )
+    projector = np.zeros((dim, dim))
+    projector[state, state] = 1.
+    return tn.Node(projector, name=f"|{state}><{state}|")
 
 
 # Common two qubit gates as np.ndarray objects
