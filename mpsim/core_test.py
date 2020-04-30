@@ -1012,9 +1012,9 @@ def test_apply_qft_nonlocal_gates():
         assert np.allclose(mps.wavefunction, correct)
 
 
-def test_valid_after_orthonormalize_edges():
-    """Tests MPS remains valid, retains correct bond dimensions, and retains
-    correct wavefunction after orthonormalizing edges.
+def test_valid_after_orthonormalize_right_edges():
+    """Tests |+++> MPS remains valid, retains correct bond dimensions, and
+    retains correct wavefunction after orthonormalizing right edges.
     """
     n = 3
     mps = MPS(nqudits=n)
@@ -1024,15 +1024,15 @@ def test_valid_after_orthonormalize_edges():
     assert mps.get_bond_dimension_of(0) == 1
     assert mps.get_bond_dimension_of(1) == 1
 
-    # Orthonormalize the first edge
-    mps._orthonormalize_edge(0)
+    # Orthonormalize the right edge of the first node
+    mps.orthonormalize_right_edge_of(0)
     assert mps.is_valid()
     assert mps.get_bond_dimension_of(0) == 1
     assert mps.get_bond_dimension_of(1) == 1
     assert np.allclose(mps.wavefunction, wavefunction_before)
 
-    # Orthonormalize the second edge
-    mps._orthonormalize_edge(1)
+    # Orthonormalize the right edge of the second node
+    mps.orthonormalize_right_edge_of(1)
     assert mps.is_valid()
     assert mps.get_bond_dimension_of(0) == 1
     assert mps.get_bond_dimension_of(1) == 1
@@ -1040,7 +1040,7 @@ def test_valid_after_orthonormalize_edges():
 
 
 def test_apply_povm_product_state():
-    """Tests applying a POVM + orthonormalizing the index to a product state."""
+    """Tests applying a POVM + orthonormalizing the index to the |+++> state."""
     # Get the projector
     pi0 = computational_basis_projector(state=0)
 
@@ -1103,6 +1103,11 @@ def test_apply_povm_bell_state_ortho_reduces_bond_dimension():
     assert np.isclose(mps.norm(), 0.5)
     correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
     assert np.allclose(mps.wavefunction, correct)
+    assert mps.get_bond_dimensions() == [2]
 
-    # Check that the bond dimension reduces from two to one
+    # Now do the orthonormalization to reduce the bond dimension
+    mps.orthonormalize_right_edge_of(0, new_edge_dimension=1)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    assert np.allclose(mps.wavefunction, correct)
     assert mps.get_bond_dimensions() == [1]

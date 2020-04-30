@@ -282,13 +282,26 @@ class MPS:
         assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
         return abs(fin.tensor)
 
-    def apply_one_qubit_gate(self, gate: tn.Node, index: int) -> None:
+    def apply_one_qubit_gate(
+            self,
+            gate: tn.Node,
+            index: int,
+            ortho_after_non_unitary: bool = True,
+            new_left_edge_dimension: Optional[int] = None,
+            new_right_edge_dimension: Optional[int] = None
+    ) -> None:
         """Applies a single qubit gate to a specified node.
 
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
             index: Index of tensor (qubit) in the MPS to apply
                     the single qubit gate to.
+            ortho_after_non_unitary: If True, orthonormalizes edge(s) of the
+                                     node after applying a non-unitary gate.
+            new_left_edge_dimension: Dimension of left edge after doing the
+                                     orthonormalization.
+            new_right_edge_dimension: Dimension of right edge after doing the
+                                      orthonormalization.
         """
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
@@ -315,95 +328,124 @@ class MPS:
         new = tn.contract(connected, name=self._nodes[index].name)
         self._nodes[index] = new
 
-        if not is_unitary(gate):
-            # TODO: Is this the correct procedure for the right edge case?
-            if index == self._nqudits - 1:
-                index -= 1
-            self._orthonormalize_edge(index)
+        # Optional orthonormalization after a non-unitary gate
+        if not is_unitary(gate) and ortho_after_non_unitary:
+            if index == 0:
+                self.orthonormalize_right_edge_of(
+                    index, new_edge_dimension=new_right_edge_dimension
+                )
+            elif index == self._nqudits - 1:
+                self.orthonormalize_left_edge_of(
+                    index, new_edge_dimension=new_left_edge_dimension
+                )
+            else:
+                print("Ortho-ing right")
+                self.orthonormalize_right_edge_of(
+                    index, new_edge_dimension=new_right_edge_dimension
+                )
+                assert self.is_valid()
+                print("Ortho-ing left")
+                self.orthonormalize_left_edge_of(
+                    index, new_edge_dimension=new_left_edge_dimension
+                )
 
-    def _orthonormalize_edge(
-            self, edge_index: int, maxsvals: int = 1
+    def orthonormalize_right_edge_of(
+            self, node_index: int, new_edge_dimension: Optional[int] = None
     ) -> None:
-        """Performs SVD on a single node N to get N = U S V^dag. Sets the new
-        node to be U and multiplies the node to the right by S V^dag.
+        """Performs SVD on the specified node to orthonormalize the right edge.
+
+        Let N be the specified node. Then, this function:
+            (1) Performs SVD on N to get N = U @ S @ Vdag,
+            (2) Sets the node at N to be U, and
+            (3) Sets the node to the right of N (call it M) to be S @ Vdag @ M.
 
         Args:
-            edge_index: Index of edge to orthonormalize.
-            maxsvals: Number of singular values to keep. This will be the
-                      dimension of the new edge.
+            node_index: Index which specifies the node.
+            new_edge_dimension: Dimension of the new right edge of the node.
+                                If None, the new edge dimension is the same as
+                                the current edge dimension.
+
+        Raises:
+            ValueError: If the node_index is out of bounds for the MPS.
         """
-        if not 0 <= edge_index < self._nqudits - 1:
+        if not 0 <= node_index < self._nqudits - 1:
             raise ValueError("Invalid edge index.")
 
-        print("\n\nOriginal MPS nodes:")
-        for node in self._nodes:
-            print(node)
-            print(node.tensor)
-            print(*list(node.edges), sep="\n")
-            print("\n\n")
-
-        # Get the left node of the edge
-        node = self.get_node(edge_index, copy=False)
-        print("Node to SVD:")
-        print(node)
-        print(node.tensor)
-        print(node.edges)
+        # Get the node
+        node = self._nodes[node_index]
 
         # Get the left and right edges to do the SVD
-        left_edges = [self.get_free_edge_of(edge_index, copy=False)]
-        if self.get_left_connected_edge_of(edge_index):
-            left_edges.append(self.get_left_connected_edge_of(edge_index))
-        right_edges = [self.get_right_connected_edge_of(edge_index)]
+        left_edges = [self.get_free_edge_of(node_index, copy=False)]
+        if self.get_left_connected_edge_of(node_index):
+            left_edges.append(self.get_left_connected_edge_of(node_index))
+        right_edges = [self.get_right_connected_edge_of(node_index)]
 
-        print("\nMy left edges are")
-        print(left_edges)
-
-        print("\nMy right edges are")
-        print(right_edges)
-
+        # Do the SVD
         u, s, vdag, _ = tn.split_node_full_svd(
             node,
             left_edges=left_edges,
             right_edges=right_edges,
-            max_singular_values=maxsvals
+            max_singular_values=new_edge_dimension
         )
 
-        print("\n\nMy U node:")
-        u.set_name("U")
-        print(u)
-        print(u.tensor)
-        print(u.edges)
-
-        print("\n\nMy S node:")
-        s.set_name("S")
-        print(s)
-        print(s.tensor)
-        print(s.edges)
-
-        print("\n\nMy Vdag node:")
-        vdag.set_name("Vdag")
-        print(vdag)
-        print(vdag.tensor)
-        print(vdag.edges)
-
-        # Set the new left node
-        print(node.name)
-        u.set_name(node.name)
-        self._nodes[edge_index] = u
-        self._nodes[edge_index].name = self._prefix + str(edge_index)
+        # Set the new node
+        self._nodes[node_index] = u
+        self._nodes[node_index].name = self._prefix + str(node_index)
 
         # Mutlipy S and Vdag to the right
         temp = tn.contract_between(s, vdag)
-        new_right = tn.contract_between(temp, self._nodes[edge_index + 1])
-        new_right.name = self._nodes[edge_index + 1].name
-        self._nodes[edge_index + 1] = new_right
+        new_right = tn.contract_between(temp, self._nodes[node_index + 1])
+        new_right.name = self._nodes[node_index + 1].name
+        self._nodes[node_index + 1] = new_right
 
-        print("\n\nFinal MPS nodes:")
-        for node in self._nodes:
-            print(node)
-            print(node.tensor)
-            print(*list(node.edges), sep="\n")
-            print()
+    def orthonormalize_left_edge_of(
+            self, node_index: int, new_edge_dimension: Optional[int] = None
+    ) -> None:
+        """Performs SVD on the specified node to orthonormalize the left edge.
+
+        Let M be the specified node. Then, this function:
+            (1) Performs SVD on M to get M = U @ S @ Vdag,
+            (2) Sets the node at M to be Vdag, and
+            (3) Sets the node to the left of M (call it N) to be N @ U @ S.
+
+        Args:
+            node_index: Index which specifies the node.
+            new_edge_dimension: Dimension of the new left edge of the node.
+                                If None, the new edge dimension is the same as
+                                the current edge dimension.
+
+        Raises:
+            ValueError: If the node_index is out of bounds for the MPS.
+        """
+        if not 0 < node_index <= self._nqudits - 1:
+            raise ValueError("Invalid edge index.")
+
+        # Get the node
+        node = self._nodes[node_index]
+
+        # Get the left and right edges to do the SVD
+        left_edges = [self.get_left_connected_edge_of(node_index)]
+        right_edges = [self.get_free_edge_of(node_index, copy=False)]
+        if self.get_right_connected_edge_of(node_index):
+            right_edges.append(self.get_right_connected_edge_of(node_index))
+
+        # Do the SVD
+        u, s, vdag, _ = tn.split_node_full_svd(
+            node,
+            left_edges=left_edges,
+            right_edges=right_edges,
+            max_singular_values=new_edge_dimension
+        )
+
+        # Set the new node
+        self._nodes[node_index] = vdag
+        self._nodes[node_index].name = self._prefix + str(node_index)
+
+        # Mutlipy U and S to the left
+        temp = tn.contract_between(u, s)
+        new_left = tn.contract_between(self._nodes[node_index - 1], temp)
+        new_left.name = self._nodes[node_index - 1].name
+        self._nodes[node_index - 1] = new_left
 
     def apply_one_qubit_gate_to_all(self, gate: tn.Node) -> None:
         """Applies a single qubit gate to all tensors in the MPS.
