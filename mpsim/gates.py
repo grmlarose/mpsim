@@ -1,13 +1,54 @@
 """Declarations of single qubit and two-qubit gates."""
 
 from copy import deepcopy
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 from scipy.linalg import expm
 from scipy.stats import unitary_group
 
 import tensornetwork as tn
+
+
+# Helper functions
+def is_unitary(gate: Union[np.ndarray, tn.Node]) -> bool:
+    """Returns True if the gate (of the node) is unitary, else False."""
+    if not isinstance(gate, (np.ndarray, tn.Node)):
+        raise TypeError("Invalid type for gate.")
+
+    if isinstance(gate, tn.Node):
+        gate = gate.tensor
+
+    # Reshape the matrix if necessary
+    if len(gate.shape) > 2:
+        if len(set(gate.shape)) != 1:
+            raise ValueError("Gate shape should be of the form (d, d, ..., d).")
+        dim = int(np.sqrt(gate.size))
+        gate = np.reshape(gate, newshape=(dim, dim))
+
+    # Check that the matrix is unitary
+    return np.allclose(
+        gate.conj().T @ gate, np.identity(gate.shape[0]), atol=1e-5
+    )
+
+
+def is_projector(gate: Union[np.ndarray, tn.Node]) -> bool:
+    """Returns True if the gate (of the node) is a projector, else False."""
+    if not isinstance(gate, (np.ndarray, tn.Node)):
+        raise TypeError("Invalid type for gate.")
+
+    if isinstance(gate, tn.Node):
+        gate = gate.tensor
+
+    # Reshape the matrix if necessary
+    if len(gate.shape) > 2:
+        if len(set(gate.shape)) != 1:
+            raise ValueError("Gate shape should be of the form (d, d, ..., d).")
+        dim = int(np.sqrt(gate.size))
+        gate = np.reshape(gate, newshape=(dim, dim))
+
+    return np.linalg.matrix_rank(gate) == 1
+
 
 # Common single qubit states as np.ndarray objects
 zero_state = np.array([1.0, 0.0], dtype=np.complex64)
@@ -29,6 +70,7 @@ _zmatrix = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=np.complex64)
 # Note that functions are used because TensorNetwork connect/contract
 # functions modify Node objects
 def igate() -> tn.Node:
+    """Returns a single qubit identity gate."""
     return tn.Node(deepcopy(_imatrix), name="igate")
 
 
@@ -80,6 +122,32 @@ def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
     # TODO: Note to Guifre diagonal elements of this unitary are always real,
     #  and off-diagonal elements are imaginary
     return tn.Node(unitary)
+
+
+def computational_basis_projector(state: int, dim: int = 2) -> tn.Node:
+    """Returns a projector onto a computational basis state which acts on a
+    single qudit of dimension dim.
+
+    Args:
+        state: Basis state to project onto.
+        dim: Dimension of the qudit. Default is two for qubits.
+
+    Raises:
+        ValueError: If state < 0, dim < 0, or state >= dim.
+    """
+    if state < 0:
+        raise ValueError(f"Argument state should be positive but is {state}.")
+
+    if dim < 0:
+        raise ValueError(f"Argument dim should be positive but is {dim}.")
+
+    if state >= dim:
+        raise ValueError(
+            f"Requires state < dim but state = {state} and dim = {dim}."
+        )
+    projector = np.zeros((dim, dim))
+    projector[state, state] = 1.
+    return tn.Node(projector, name=f"|{state}><{state}|")
 
 
 # Common two qubit gates as np.ndarray objects

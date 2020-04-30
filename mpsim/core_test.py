@@ -17,6 +17,7 @@ from mpsim.gates import (
     zero_state,
     one_state,
     plus_state,
+    computational_basis_projector
 )
 
 from mpsim.mpsim_cirq.circuits import MPSOperation
@@ -114,6 +115,71 @@ def test_get_bond_dimensions_product_state():
     for d in range(3, 10):
         mps = MPS(nqudits=n, qudit_dimension=d)
         assert mps.get_bond_dimensions() == [1] * (n - 1)
+
+
+def test_get_free_edge_of():
+    """Tests getting the free edge of nodes in an MPS."""
+    for n in range(2, 10):
+        for d in (2, 3, 4):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            for i in range(n):
+                free_edge = mps.get_free_edge_of(i, copy=False)
+                assert free_edge.is_dangling()
+                assert free_edge.node1.name == f"q{i}"
+
+
+def test_get_left_connected_edge():
+    """Tests getting the left connected edge of nodes in an MPS."""
+    for d in (2, 3, 4):
+        mps = MPS(nqudits=3, qudit_dimension=d)
+
+        # Left edge of first node should be None
+        edge = mps.get_left_connected_edge_of(0)
+        assert edge is None
+
+        # Left edge of second node
+        edge = mps.get_left_connected_edge_of(1)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q0"
+        assert edge.node2.name == "q1"
+
+        # Left edge of third node
+        edge = mps.get_left_connected_edge_of(2)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q2"
+        assert edge.node2.name == "q1"
+
+
+def test_get_right_connected_edge():
+    """Tests getting the left connected edge of nodes in an MPS."""
+    for d in (2, 3, 4):
+        mps = MPS(nqudits=3, qudit_dimension=d)
+
+        # Right edge of first node
+        edge = mps.get_right_connected_edge_of(0)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q0"
+        assert edge.node2.name == "q1"
+
+        # Right edge of second node
+        edge = mps.get_right_connected_edge_of(1)
+        assert not edge.is_dangling()
+        assert edge.node1.name == "q2"
+        assert edge.node2.name == "q1"
+
+        # Right edge of third node should be None
+        edge = mps.get_right_connected_edge_of(2)
+        assert edge is None
+
+
+def test_get_left_and_get_right_connected_edges():
+    """Tests correctness of getting left edges and getting right edges."""
+    n = 10
+    for d in (2, 3, 4):
+        mps = MPS(nqudits=n, qudit_dimension=d)
+        for i in range(1, n - 1):
+            assert (mps.get_right_connected_edge_of(i - 1) ==
+                    mps.get_left_connected_edge_of(i))
 
 
 def test_get_wavefunction_simple_qubits():
@@ -732,7 +798,6 @@ def test_qubit_hopping_left_to_right_and_back():
      several n-qubit MPS states.
      """
     for n in range(2, 20):
-        print("Status: n =", n)
         mps = MPS(n)
         mps.x(0)
         for i in range(n - 1):
@@ -944,3 +1009,171 @@ def test_apply_qft_nonlocal_gates():
         correct = np.ones(shape=(2**n,))
         correct /= 2**(n / 2)
         assert np.allclose(mps.wavefunction, correct)
+
+
+def test_valid_after_orthonormalize_right_edges():
+    """Tests |+++> MPS remains valid, retains correct bond dimensions, and
+    retains correct wavefunction after orthonormalizing right edges.
+    """
+    n = 3
+    mps = MPS(nqudits=n)
+    mps_operations = [MPSOperation(hgate(), (i,)) for i in range(n)]
+    mps.apply_mps_operations(mps_operations)
+    wavefunction_before = mps.wavefunction
+    assert mps.get_bond_dimension_of(0) == 1
+    assert mps.get_bond_dimension_of(1) == 1
+
+    # Orthonormalize the right edge of the first node
+    mps.orthonormalize_right_edge_of(0)
+    assert mps.is_valid()
+    assert mps.get_bond_dimension_of(0) == 1
+    assert mps.get_bond_dimension_of(1) == 1
+    assert np.allclose(mps.wavefunction, wavefunction_before)
+
+    # Orthonormalize the right edge of the second node
+    mps.orthonormalize_right_edge_of(1)
+    assert mps.is_valid()
+    assert mps.get_bond_dimension_of(0) == 1
+    assert mps.get_bond_dimension_of(1) == 1
+    assert np.allclose(mps.wavefunction, wavefunction_before)
+
+
+def test_apply_povm_product_state():
+    """Tests applying a POVM + orthonormalizing the index to the |+++> state."""
+    # Get the projector
+    pi0 = computational_basis_projector(state=0)
+
+    # Create an MPS in the H|0> state
+    n = 3
+    mps = MPS(nqudits=n)  # State: |000>
+    mps_operations = [MPSOperation(hgate(), (i,)) for i in range(n)]
+    mps.apply_mps_operations(mps_operations)  # State |+++>
+    assert np.isclose(mps.norm(), 1.0)
+    assert mps.get_bond_dimensions() == [1, 1]
+
+    # Apply |0><0| to the first qubit
+    op = MPSOperation(pi0, (0,))
+    mps.apply_mps_operation(op)  # State: 1 / sqrt(2) * |0++>
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    assert mps.get_bond_dimensions() == [1, 1]
+    correct = 1. / np.sqrt(2)**3 * np.array([1] * 4 + [0] * 4)
+    assert np.allclose(mps.wavefunction, correct)
+
+    # Apply |0><0| to the second qubit
+    op = MPSOperation(pi0, (1,))
+    mps.apply_mps_operation(op)  # State: 1 / 2 * |00+>
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.25)
+    assert mps.get_bond_dimensions() == [1, 1]
+    correct = 1. / np.sqrt(2)**3 * np.array([1] * 2 + [0] * 6)
+    assert np.allclose(mps.wavefunction, correct)
+
+    # Apply |0><0| to the third qubit
+    op = MPSOperation(pi0, (2,))
+    mps.apply_mps_operation(op)  # State: 1 / sqrt(2)**3 * |000>
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.125)
+    assert mps.get_bond_dimensions() == [1, 1]
+    correct = 1. / np.sqrt(2) ** 3 * np.array([1] * 1 + [0] * 7)
+    assert np.allclose(mps.wavefunction, correct)
+
+
+def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
+    """Tests applying a POVM + orthonormalizing the index to a bell state."""
+    # Get the projector
+    pi0 = computational_basis_projector(state=0)
+
+    # Create an MPS in the Bell state
+    n = 2
+    mps = MPS(nqudits=n)  # State: |00>
+    mps_operations = [
+        MPSOperation(hgate(), (0,)),
+        MPSOperation(cnot(), (0, 1))
+    ]
+    mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
+    assert np.isclose(mps.norm(), 1.0)
+    assert mps.get_bond_dimensions() == [2]
+    wavefunction_before = mps.wavefunction
+
+    # Check that orthonormalization does nothing to the Bell state
+    mps.orthonormalize_right_edge_of(node_index=0)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 1.0)
+    assert np.allclose(mps.wavefunction, wavefunction_before)
+    assert mps.get_bond_dimensions() == [2]
+
+    # Apply |0><0| to the first qubit
+    op = MPSOperation(pi0, (0,))
+    mps.apply_mps_operation(op)  # State: 1 / sqrt(2) |00>
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction, correct)
+    assert mps.get_bond_dimensions() == [2]
+
+    # Now do the orthonormalization to reduce the bond dimension
+    mps.orthonormalize_right_edge_of(node_index=0, new_edge_dimension=1)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    assert np.allclose(mps.wavefunction, correct)
+    assert mps.get_bond_dimensions() == [1]
+
+
+def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
+    """Tests applying a POVM + orthonormalizing the index to a bell state."""
+    # Get the projector
+    pi0 = computational_basis_projector(state=0)
+
+    # Create an MPS in the Bell state
+    n = 2
+    mps = MPS(nqudits=n)  # State: |00>
+    mps_operations = [
+        MPSOperation(hgate(), (0,)),
+        MPSOperation(cnot(), (0, 1))
+    ]
+    mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
+    assert np.isclose(mps.norm(), 1.0)
+    assert mps.get_bond_dimensions() == [2]
+    wavefunction_before = mps.wavefunction
+
+    # Check that orthonormalization does nothing to the Bell state
+    mps.orthonormalize_left_edge_of(node_index=1)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 1.0)
+    assert np.allclose(mps.wavefunction, wavefunction_before)
+    assert mps.get_bond_dimensions() == [2]
+
+    # Apply |0><0| to the first qubit
+    op = MPSOperation(pi0, (0,))
+    mps.apply_mps_operation(op)  # State: 1 / sqrt(2) |00>
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction, correct)
+    assert mps.get_bond_dimensions() == [2]
+
+    # Now do the orthonormalization to reduce the bond dimension
+    mps.orthonormalize_left_edge_of(node_index=1, new_edge_dimension=1)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 0.5)
+    assert np.allclose(mps.wavefunction, correct)
+    assert mps.get_bond_dimensions() == [1]
+
+
+def test_orthonormalize_all_tensors_edge_cases():
+    """Tests orthonormalizing all tensors in an MPS and ensures the MPS remains
+    valid after.
+    """
+    for n in range(2, 8):
+        for d in (2, 3, 4):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            correct = mps.wavefunction
+            for node_index in range(n - 1):
+                mps.orthonormalize_right_edge_of(node_index)
+                assert mps.is_valid()
+                assert np.allclose(mps.wavefunction, correct)
+            for node_index in range(1, n):
+                mps.orthonormalize_left_edge_of(node_index)
+                assert mps.is_valid()
+                assert np.allclose(mps.wavefunction, correct)

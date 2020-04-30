@@ -1,11 +1,11 @@
 """Defines matrix product state class."""
 
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Union
 
 import numpy as np
 import tensornetwork as tn
 
-from mpsim.gates import hgate, rgate, xgate, cnot, swap
+from mpsim.gates import hgate, rgate, xgate, cnot, swap, is_unitary
 from mpsim.mpsim_cirq.circuits import MPSOperation
 
 
@@ -117,6 +117,7 @@ class MPS:
         """
         if not self.is_valid():
             raise ValueError("MPS is invalid.")
+
         if index >= self._nqudits:
             raise ValueError(
                 f"Index should be less than {self._nqudits} but is {index}."
@@ -202,7 +203,6 @@ class MPS:
         """
         return self.get_nodes(copy)[i]
 
-    # TODO: Add unit tests for!
     def get_free_edge_of(self, index: int, copy: bool = True) -> tn.Edge:
         """Returns the free (dangling) edge of a node with specified index.
         
@@ -213,11 +213,35 @@ class MPS:
         """
         return self.get_node(index, copy).get_all_dangling().pop()
 
+    def get_left_connected_edge_of(self, index: int) -> Union[tn.Edge, None]:
+        """Returns the left connected edge of the specified node, if it exists.
+
+        Args:
+            index: Index of node to get the left connected edge of.
+        """
+        if index == 0:
+            return None
+
+        return tn.get_shared_edges(
+            self._nodes[index], self._nodes[index - 1]
+        ).pop()
+
+    def get_right_connected_edge_of(self, index: int) -> Union[tn.Edge, None]:
+        """Returns the left connected edge of the specified node, if it exists.
+
+        Args:
+            index: Index of node to get the right connected edge of.
+        """
+        if index == self._nqudits - 1:
+            return None
+
+        return tn.get_shared_edges(
+            self._nodes[index], self._nodes[index + 1]
+        ).pop()
+
     @property
     def wavefunction(self) -> np.array:
-        """Returns the wavefunction of a valid MPS as a (potentially giant)
-        vector by contracting all virtual indices.
-        """
+        """Returns the wavefunction of the MPS as a vector."""
         if not self.is_valid():
             raise ValueError("MPS is not valid.")
 
@@ -232,7 +256,8 @@ class MPS:
             raise ValueError("Invalid MPS.")
 
         return np.reshape(
-            fin.tensor, newshape=(self._qudit_dimension ** self._nqudits))
+            fin.tensor, newshape=(self._qudit_dimension ** self._nqudits)
+        )
 
     def norm(self) -> float:
         """Returns the norm of the MPS computed by contraction."""
@@ -257,13 +282,26 @@ class MPS:
         assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
         return abs(fin.tensor)
 
-    def apply_one_qubit_gate(self, gate: tn.Node, index: int) -> None:
+    def apply_one_qubit_gate(
+            self,
+            gate: tn.Node,
+            index: int,
+            ortho_after_non_unitary: bool = True,
+            new_left_edge_dimension: Optional[int] = None,
+            new_right_edge_dimension: Optional[int] = None
+    ) -> None:
         """Applies a single qubit gate to a specified node.
 
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
             index: Index of tensor (qubit) in the MPS to apply
                     the single qubit gate to.
+            ortho_after_non_unitary: If True, orthonormalizes edge(s) of the
+                                     node after applying a non-unitary gate.
+            new_left_edge_dimension: Dimension of left edge after doing the
+                                     orthonormalization.
+            new_right_edge_dimension: Dimension of right edge after doing the
+                                      orthonormalization.
         """
         if not self.is_valid():
             raise ValueError("Input mpslist does not define a valid MPS.")
@@ -289,6 +327,122 @@ class MPS:
         # Contract the edge to get the new tensor
         new = tn.contract(connected, name=self._nodes[index].name)
         self._nodes[index] = new
+
+        # Optional orthonormalization after a non-unitary gate
+        if not is_unitary(gate) and ortho_after_non_unitary:
+            if index == 0:
+                self.orthonormalize_right_edge_of(
+                    index, new_edge_dimension=new_right_edge_dimension
+                )
+            elif index == self._nqudits - 1:
+                self.orthonormalize_left_edge_of(
+                    index, new_edge_dimension=new_left_edge_dimension
+                )
+            else:
+                self.orthonormalize_right_edge_of(
+                    index, new_edge_dimension=new_right_edge_dimension
+                )
+                self.orthonormalize_left_edge_of(
+                    index, new_edge_dimension=new_left_edge_dimension
+                )
+
+    def orthonormalize_right_edge_of(
+            self, node_index: int, new_edge_dimension: Optional[int] = None
+    ) -> None:
+        """Performs SVD on the specified node to orthonormalize the right edge.
+
+        Let N be the specified node. Then, this function:
+            (1) Performs SVD on N to get N = U @ S @ Vdag,
+            (2) Sets the node at N to be U, and
+            (3) Sets the node to the right of N (call it M) to be S @ Vdag @ M.
+
+        Args:
+            node_index: Index which specifies the node.
+            new_edge_dimension: Dimension of the new right edge of the node.
+                                If None, the new edge dimension is the same as
+                                the current edge dimension.
+
+        Raises:
+            ValueError: If the node_index is out of bounds for the MPS.
+        """
+        if not 0 <= node_index < self._nqudits - 1:
+            raise ValueError("Invalid edge index.")
+
+        # Get the node
+        node = self._nodes[node_index]
+
+        # Get the left and right edges to do the SVD
+        left_edges = [self.get_free_edge_of(node_index, copy=False)]
+        if self.get_left_connected_edge_of(node_index):
+            left_edges.append(self.get_left_connected_edge_of(node_index))
+        right_edges = [self.get_right_connected_edge_of(node_index)]
+
+        # Do the SVD
+        u, s, vdag, _ = tn.split_node_full_svd(
+            node,
+            left_edges=left_edges,
+            right_edges=right_edges,
+            max_singular_values=new_edge_dimension
+        )
+
+        # Set the new node
+        self._nodes[node_index] = u
+        self._nodes[node_index].name = self._prefix + str(node_index)
+
+        # Mutlipy S and Vdag to the right
+        temp = tn.contract_between(s, vdag)
+        new_right = tn.contract_between(temp, self._nodes[node_index + 1])
+        new_right.name = self._nodes[node_index + 1].name
+        self._nodes[node_index + 1] = new_right
+
+    def orthonormalize_left_edge_of(
+            self, node_index: int, new_edge_dimension: Optional[int] = None
+    ) -> None:
+        """Performs SVD on the specified node to orthonormalize the left edge.
+
+        Let M be the specified node. Then, this function:
+            (1) Performs SVD on M to get M = U @ S @ Vdag,
+            (2) Sets the node at M to be Vdag, and
+            (3) Sets the node to the left of M (call it N) to be N @ U @ S.
+
+        Args:
+            node_index: Index which specifies the node.
+            new_edge_dimension: Dimension of the new left edge of the node.
+                                If None, the new edge dimension is the same as
+                                the current edge dimension.
+
+        Raises:
+            ValueError: If the node_index is out of bounds for the MPS.
+        """
+        if not 0 < node_index <= self._nqudits - 1:
+            raise ValueError("Invalid edge index.")
+
+        # Get the node
+        node = self._nodes[node_index]
+
+        # Get the left and right edges to do the SVD
+        left_edges = [self.get_left_connected_edge_of(node_index)]
+        right_edges = [self.get_free_edge_of(node_index, copy=False)]
+        if self.get_right_connected_edge_of(node_index):
+            right_edges.append(self.get_right_connected_edge_of(node_index))
+
+        # Do the SVD
+        u, s, vdag, _ = tn.split_node_full_svd(
+            node,
+            left_edges=left_edges,
+            right_edges=right_edges,
+            max_singular_values=new_edge_dimension
+        )
+
+        # Set the new node
+        self._nodes[node_index] = vdag
+        self._nodes[node_index].name = self._prefix + str(node_index)
+
+        # Mutlipy U and S to the left
+        temp = tn.contract_between(u, s)
+        new_left = tn.contract_between(self._nodes[node_index - 1], temp)
+        new_left.name = self._nodes[node_index - 1].name
+        self._nodes[node_index - 1] = new_left
 
     def apply_one_qubit_gate_to_all(self, gate: tn.Node) -> None:
         """Applies a single qubit gate to all tensors in the MPS.
@@ -541,6 +695,7 @@ class MPS:
         # TODO: Remove. This is only for convenience in benchmarking.
         self._fidelities.append(self.norm())
 
+    # TODO: Take single qudit gate application kwargs/options into account
     def apply_mps_operation(
             self, mps_operation: MPSOperation, **kwargs
     ) -> None:
