@@ -3,7 +3,11 @@
 import numpy as np
 import pytest
 
-from mpsim.gates import computational_basis_projector
+from mpsim.gates import (
+    computational_basis_projector,
+    is_projector,
+    is_unitary
+)
 
 
 def test_qubit_pi0_projector():
@@ -11,6 +15,8 @@ def test_qubit_pi0_projector():
     pi0 = computational_basis_projector(state=0)
     correct_tensor = np.array([[1., 0.], [0., 0.]])
     assert np.array_equal(pi0.tensor, correct_tensor)
+    assert is_projector(pi0)
+    assert not is_unitary(pi0)
     assert pi0.__str__() == "|0><0|"
 
 
@@ -19,6 +25,8 @@ def test_qubit_pi1_projector():
     pi1 = computational_basis_projector(state=1)
     correct_tensor = np.array([[0., 0.], [0., 1.]])
     assert np.array_equal(pi1.tensor, correct_tensor)
+    assert is_projector(pi1)
+    assert not is_unitary(pi1)
     assert pi1.__str__() == "|1><1|"
 
 
@@ -45,4 +53,6 @@ def test_qutrit_projectors():
         correct_tensor = np.zeros((dim, dim))
         correct_tensor[state, state] = 1.
         assert np.array_equal(projector.tensor, correct_tensor)
+        assert is_projector(projector)
+        assert not is_unitary(projector)
         assert projector.__str__() == f"|{state}><{state}|"

@@ -1,13 +1,44 @@
 """Declarations of single qubit and two-qubit gates."""
 
 from copy import deepcopy
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 from scipy.linalg import expm
 from scipy.stats import unitary_group
 
 import tensornetwork as tn
+
+
+# Helper functions
+def is_unitary(gate: Union[np.ndarray, tn.Node]) -> bool:
+    """Returns True if the gate (of the node) is unitary, else False."""
+    if not isinstance(gate, (np.ndarray, tn.Node)):
+        raise TypeError("Invalid type for gate.")
+
+    if isinstance(gate, tn.Node):
+        gate = gate.tensor
+
+    # Check that the matrix is square
+    if gate.shape[0] != gate.shape[1]:
+        return False
+
+    # Check that the matrix is unitary
+    return np.allclose(
+        gate.conj().T @ gate, np.identity(gate.shape[0])
+    )
+
+
+def is_projector(gate: Union[np.ndarray, tn.Node]) -> bool:
+    """Returns True if the gate (of the node) is a projector, else False."""
+    if not isinstance(gate, (np.ndarray, tn.Node)):
+        raise TypeError("Invalid type for gate.")
+
+    if isinstance(gate, tn.Node):
+        gate = gate.tensor
+
+    return np.linalg.matrix_rank(gate) == 1
+
 
 # Common single qubit states as np.ndarray objects
 zero_state = np.array([1.0, 0.0], dtype=np.complex64)
@@ -102,7 +133,7 @@ def computational_basis_projector(state: int, dim: int = 2) -> tn.Node:
 
     if state >= dim:
         raise ValueError(
-            f"Requires state < dim but state = {state} and dim = {dim}"
+            f"Requires state < dim but state = {state} and dim = {dim}."
         )
     projector = np.zeros((dim, dim))
     projector[state, state] = 1.
