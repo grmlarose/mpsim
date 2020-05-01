@@ -282,6 +282,35 @@ class MPS:
         assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
         return abs(fin.tensor)
 
+    def renormalize(self, to_norm: float = 1.0) -> None:
+        """Renormalizes the MPS.
+
+        Args:
+            to_norm: The resulting MPS will have this norm.
+
+        Raises:
+            ValueError: If to_norm is negative or too close to zero, or if
+                        the current norm of the MPS is too close to zero.
+        """
+        if to_norm <= 0.:
+            raise ValueError(f"Arg to_norm must be positive but is {to_norm}")
+
+        if np.isclose(to_norm, 0., 1e-7):
+            raise ValueError(
+                f"Arg to_norm = {to_norm} is too close to numerical zero."
+            )
+
+        if np.isclose(self.norm(), 0., atol=1e-7):
+            raise ValueError(
+                "Norm of MPS is numerically zero, cannot renormalize."
+            )
+
+        norm = self.norm()
+        for i, node in enumerate(self._nodes):
+            self._nodes[i].set_tensor(
+                np.sqrt(to_norm / norm)**(1 / self.nqudits) * node.tensor
+            )
+
     def apply_one_qubit_gate(
             self,
             gate: tn.Node,
@@ -330,6 +359,7 @@ class MPS:
 
         # Optional orthonormalization after a non-unitary gate
         if not is_unitary(gate) and ortho_after_non_unitary:
+            current_norm = self.norm()
             if index == 0:
                 self.orthonormalize_right_edge_of(
                     index, new_edge_dimension=new_right_edge_dimension
@@ -345,6 +375,7 @@ class MPS:
                 self.orthonormalize_left_edge_of(
                     index, new_edge_dimension=new_left_edge_dimension
                 )
+            self.renormalize(current_norm)
 
     def orthonormalize_right_edge_of(
             self, node_index: int, new_edge_dimension: Optional[int] = None
