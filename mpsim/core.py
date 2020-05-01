@@ -287,21 +287,28 @@ class MPS:
 
         Args:
             to_norm: The resulting MPS will have this norm.
+
+        Raises:
+            ValueError: If to_norm is negative or too close to zero, or if
+                        the current norm of the MPS is too close to zero.
         """
         if to_norm <= 0.:
             raise ValueError(f"Arg to_norm must be positive but is {to_norm}")
 
-        n = self.nqudits
-        norm = self.norm()
+        if np.isclose(to_norm, 0., 1e-7):
+            raise ValueError(
+                f"Arg to_norm = {to_norm} is too close to numerical zero."
+            )
 
-        if np.isclose(norm, 0., atol=1e-7):
+        if np.isclose(self.norm(), 0., atol=1e-7):
             raise ValueError(
                 "Norm of MPS is numerically zero, cannot renormalize."
             )
 
+        norm = self.norm()
         for i, node in enumerate(self._nodes):
             self._nodes[i].set_tensor(
-                np.sqrt(to_norm / norm) ** (1 / n) * node.tensor
+                np.sqrt(to_norm / norm)**(1 / self.nqudits) * node.tensor
             )
 
     def apply_one_qubit_gate(

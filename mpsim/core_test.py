@@ -997,6 +997,28 @@ def test_renormalize_to_value_after_throwing_away_singular_values_bell_state():
         assert np.isclose(mps.norm(), norm)
 
 
+def test_renormalize_an_mps_with_too_small_norm_raises_error():
+    """Asserts that renormalizing an MPS with zero norm raises an error."""
+    mps = MPS(nqudits=2)
+    mps.apply_mps_operations(
+        [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
+        maxsvals=0
+    )
+    assert np.isclose(mps.norm(), 0.)
+    with pytest.raises(ValueError):
+        mps.renormalize()
+
+
+def test_renormalize_to_invalid_norms_raises_errors():
+    """Asserts that renormalizing an MPS to invalid norms raise errors."""
+    mps = MPS(nqudits=2)
+    with pytest.raises(ValueError):
+        mps.renormalize(to_norm=-3.14)
+
+    with pytest.raises(ValueError):
+        mps.renormalize(to_norm=1e-10)
+
+
 def test_apply_one_qubit_mps_operation_xgate():
     """Tests applying a single qubit MPS Operation."""
     mps = MPS(nqudits=2)
