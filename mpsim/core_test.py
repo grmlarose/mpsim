@@ -923,7 +923,7 @@ def test_norm_decreases_after_two_qubit_gate_with_truncation():
     assert mps.norm() == 1
     mps.h(0)
     mps.cnot(0, 1, maxsvals=1)
-    assert mps.norm() < 1.0  # TODO: Check it agrees with norm from wavefunction
+    assert np.isclose(mps.norm(), 0.5)
 
 
 def test_norm_is_zero_after_throwing_away_all_singular_values():
@@ -935,6 +935,25 @@ def test_norm_is_zero_after_throwing_away_all_singular_values():
     mps.h(0)
     mps.cnot(0, 1, maxsvals=0)
     assert mps.norm() == 0
+
+
+def test_renormalize_mps_which_are_normalized():
+    """Makes sure renormalizing a normalized MPS does nothing."""
+    for n in range(2, 8):
+        for d in (2, 3, 4, 5):
+            # All zero state
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            assert np.isclose(mps.norm(), 1.0)
+            mps.renormalize()
+            assert np.isclose(mps.norm(), 1.0)
+
+            # Plus state on qubits
+            if d == 2:
+                ops = [MPSOperation(hgate(), (i,)) for i in range(n)]
+                mps.apply_mps_operations(ops)
+                assert np.isclose(mps.norm(), 1.0)
+                mps.renormalize()
+                assert np.isclose(mps.norm(), 1.0)
 
 
 def test_apply_one_qubit_mps_operation_xgate():
