@@ -282,16 +282,27 @@ class MPS:
         assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
         return abs(fin.tensor)
 
-    def renormalize(self) -> None:
-        """Renormalizes the MPS."""
+    def renormalize(self, to_norm: float = 1.0) -> None:
+        """Renormalizes the MPS.
+
+        Args:
+            to_norm: The resulting MPS will have this norm.
+        """
+        if to_norm <= 0.:
+            raise ValueError(f"Arg to_norm must be positive but is {to_norm}")
+
         n = self.nqudits
         norm = self.norm()
+
         if np.isclose(norm, 0., atol=1e-7):
             raise ValueError(
                 "Norm of MPS is numerically zero, cannot renormalize."
             )
+
         for i, node in enumerate(self._nodes):
-            self._nodes[i].set_tensor(node.tensor / np.sqrt(norm)**(1 / n))
+            self._nodes[i].set_tensor(
+                np.sqrt(to_norm / norm) ** (1 / n) * node.tensor
+            )
 
     def apply_one_qubit_gate(
             self,

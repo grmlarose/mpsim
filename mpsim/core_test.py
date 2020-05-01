@@ -956,6 +956,47 @@ def test_renormalize_mps_which_are_normalized():
                 assert np.isclose(mps.norm(), 1.0)
 
 
+def test_renormalize_after_throwing_away_singular_values_bell_state():
+    """Prepares a Bell state only keeping one singular value with the CNOT
+    and checks that renormalization works correctly.
+    """
+    mps = MPS(nqudits=2)
+    mps.apply_mps_operations(
+        [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
+        maxsvals=1
+    )
+    correct = np.array([1. / np.sqrt(2), 0., 0., 0.])
+    assert np.allclose(mps.wavefunction, correct)
+    assert np.isclose(mps.norm(), 0.5)
+
+    # Renormalize
+    mps.renormalize()
+    correct = np.array([1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction, correct)
+    assert np.isclose(mps.norm(), 1.)
+
+
+def test_renormalize_to_value_after_throwing_away_singular_values_bell_state():
+    """Prepares a Bell state only keeping one singular value with the CNOT
+    and checks that renormalization to a provided value works correctly.
+    """
+    mps = MPS(nqudits=2)
+    mps.apply_mps_operations(
+        [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
+        maxsvals=1
+    )
+    correct = np.array([1. / np.sqrt(2), 0., 0., 0.])
+    assert np.allclose(mps.wavefunction, correct)
+    assert np.isclose(mps.norm(), 0.5)
+
+    # Renormalize to different values
+    for norm in np.linspace(0.1, 2., 100):
+        mps.renormalize(to_norm=norm)
+        correct = np.array([np.sqrt(norm), 0., 0., 0.])
+        assert np.allclose(mps.wavefunction, correct)
+        assert np.isclose(mps.norm(), norm)
+
+
 def test_apply_one_qubit_mps_operation_xgate():
     """Tests applying a single qubit MPS Operation."""
     mps = MPS(nqudits=2)
