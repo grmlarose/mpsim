@@ -359,6 +359,7 @@ class MPS:
 
         # Optional orthonormalization after a non-unitary gate
         if not is_unitary(gate) and ortho_after_non_unitary:
+            current_norm = self.norm()
             if index == 0:
                 self.orthonormalize_right_edge_of(
                     index, new_edge_dimension=new_right_edge_dimension
@@ -374,6 +375,7 @@ class MPS:
                 self.orthonormalize_left_edge_of(
                     index, new_edge_dimension=new_left_edge_dimension
                 )
+            self.renormalize(current_norm)
 
     def orthonormalize_right_edge_of(
             self, node_index: int, new_edge_dimension: Optional[int] = None
