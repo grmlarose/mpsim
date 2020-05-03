@@ -1186,8 +1186,7 @@ def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
     assert mps.get_bond_dimensions() == [2]
 
     # Apply |0><0| to the first qubit
-    op = MPSOperation(pi0, (0,))
-    mps.apply_mps_operation(op)  # State: 1 / sqrt(2) |00>
+    mps.apply_one_qubit_gate(pi0, 0, ortho_after_non_unitary=False)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
     correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
@@ -1195,7 +1194,7 @@ def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
     assert mps.get_bond_dimensions() == [2]
 
     # Now do the orthonormalization to reduce the bond dimension
-    mps.orthonormalize_right_edge_of(node_index=0, new_edge_dimension=1)
+    mps.orthonormalize_right_edge_of(node_index=0)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
     assert np.allclose(mps.wavefunction, correct)
@@ -1226,9 +1225,8 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
     assert np.allclose(mps.wavefunction, wavefunction_before)
     assert mps.get_bond_dimensions() == [2]
 
-    # Apply |0><0| to the first qubit
-    op = MPSOperation(pi0, (0,))
-    mps.apply_mps_operation(op)  # State: 1 / sqrt(2) |00>
+    # Apply |0><0| to the second qubit
+    mps.apply_one_qubit_gate(pi0, 1, ortho_after_non_unitary=False)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
     correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
@@ -1236,7 +1234,7 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
     assert mps.get_bond_dimensions() == [2]
 
     # Now do the orthonormalization to reduce the bond dimension
-    mps.orthonormalize_left_edge_of(node_index=1, new_edge_dimension=1)
+    mps.orthonormalize_left_edge_of(node_index=1)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
     assert np.allclose(mps.wavefunction, correct)
