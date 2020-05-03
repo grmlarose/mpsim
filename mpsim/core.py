@@ -316,8 +316,6 @@ class MPS:
             gate: tn.Node,
             index: int,
             ortho_after_non_unitary: bool = True,
-            new_left_edge_dimension: Optional[int] = None,
-            new_right_edge_dimension: Optional[int] = None
     ) -> None:
         """Applies a single qubit gate to a specified node.
 
@@ -327,13 +325,12 @@ class MPS:
                     the single qubit gate to.
             ortho_after_non_unitary: If True, orthonormalizes edge(s) of the
                                      node after applying a non-unitary gate.
-            new_left_edge_dimension: Dimension of left edge after doing the
-                                     orthonormalization.
-            new_right_edge_dimension: Dimension of right edge after doing the
-                                      orthonormalization.
+
+        Raises:
+            ValueError: On invalid MPS, invalid index, or invalid gate.
         """
         if not self.is_valid():
-            raise ValueError("Input mpslist does not define a valid MPS.")
+            raise ValueError("MPS is invalid.")
 
         if index not in range(self._nqudits):
             raise ValueError(
@@ -348,6 +345,9 @@ class MPS:
                 " and zero connected edges."
             )
 
+        # TODO: Check that the edge dimension of the gate matches the MPS edge
+        #  dimension.
+
         # Connect the MPS and gate edges
         mps_edge = list(self._nodes[index].get_all_dangling())[0]
         gate_edge = gate[1]  # TODO: Is this the correct edge to use (always)?
@@ -358,27 +358,29 @@ class MPS:
         self._nodes[index] = new
 
         # Optional orthonormalization after a non-unitary gate
+        # TODO: Allow for setting a different threshold in ortho funcs here.
         if not is_unitary(gate) and ortho_after_non_unitary:
+            # Store the norm to renormalize after
             current_norm = self.norm()
+
+            # Edge case: Left-most node
             if index == 0:
-                self.orthonormalize_right_edge_of(
-                    index, new_edge_dimension=new_right_edge_dimension
-                )
+                self.orthonormalize_right_edge_of(index)
+
+            # Edge case: Right-most node
             elif index == self._nqudits - 1:
-                self.orthonormalize_left_edge_of(
-                    index, new_edge_dimension=new_left_edge_dimension
-                )
+                self.orthonormalize_left_edge_of(index)
+
+            # General case
             else:
-                self.orthonormalize_right_edge_of(
-                    index, new_edge_dimension=new_right_edge_dimension
-                )
-                self.orthonormalize_left_edge_of(
-                    index, new_edge_dimension=new_left_edge_dimension
-                )
+                self.orthonormalize_right_edge_of(index)
+                self.orthonormalize_left_edge_of(index)
+
+            # Renormalize
             self.renormalize(current_norm)
 
     def orthonormalize_right_edge_of(
-            self, node_index: int, new_edge_dimension: Optional[int] = None
+            self, node_index: int, threshold: float = 1e-8
     ) -> None:
         """Performs SVD on the specified node to orthonormalize the right edge.
 
@@ -389,9 +391,7 @@ class MPS:
 
         Args:
             node_index: Index which specifies the node.
-            new_edge_dimension: Dimension of the new right edge of the node.
-                                If None, the new edge dimension is the same as
-                                the current edge dimension.
+            threshold: Throw away singular values below threshold * self.norm().
 
         Raises:
             ValueError: If the node_index is out of bounds for the MPS.
@@ -413,7 +413,7 @@ class MPS:
             node,
             left_edges=left_edges,
             right_edges=right_edges,
-            max_singular_values=new_edge_dimension
+            max_truncation_err=threshold * self.norm(),
         )
 
         # Set the new node
@@ -427,7 +427,7 @@ class MPS:
         self._nodes[node_index + 1] = new_right
 
     def orthonormalize_left_edge_of(
-            self, node_index: int, new_edge_dimension: Optional[int] = None
+            self, node_index: int, threshold: float = 1e-8
     ) -> None:
         """Performs SVD on the specified node to orthonormalize the left edge.
 
@@ -438,9 +438,7 @@ class MPS:
 
         Args:
             node_index: Index which specifies the node.
-            new_edge_dimension: Dimension of the new left edge of the node.
-                                If None, the new edge dimension is the same as
-                                the current edge dimension.
+            threshold: Throw away singular values below threshold * self.norm().
 
         Raises:
             ValueError: If the node_index is out of bounds for the MPS.
@@ -462,7 +460,7 @@ class MPS:
             node,
             left_edges=left_edges,
             right_edges=right_edges,
-            max_singular_values=new_edge_dimension
+            max_truncation_err=threshold * self.norm(),
         )
 
         # Set the new node
