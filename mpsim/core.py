@@ -300,7 +300,7 @@ class MPS:
                 f"Arg to_norm = {to_norm} is too close to numerical zero."
             )
 
-        if np.isclose(self.norm(), 0., atol=1e-7):
+        if np.isclose(self.norm(), 0., atol=1e-15):
             raise ValueError(
                 "Norm of MPS is numerically zero, cannot renormalize."
             )
