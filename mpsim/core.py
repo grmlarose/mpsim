@@ -316,15 +316,18 @@ class MPS:
             gate: tn.Node,
             index: int,
             ortho_after_non_unitary: bool = True,
+            renormalize_after_non_unitary: bool = True,
     ) -> None:
         """Applies a single qubit gate to a specified node.
 
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
             index: Index of tensor (qubit) in the MPS to apply
-                    the single qubit gate to.
+                the single qubit gate to.
             ortho_after_non_unitary: If True, orthonormalizes edge(s) of the
-                                     node after applying a non-unitary gate.
+                node after applying a non-unitary gate.
+            renormalize_after_non_unitary: If True, renormalize the MPS after
+                applying a non-unitary gate.
 
         Raises:
             ValueError: On invalid MPS, invalid index, or invalid gate.
@@ -348,6 +351,10 @@ class MPS:
         # TODO: Check that the edge dimension of the gate matches the MPS edge
         #  dimension.
 
+        # Store the norm for optional renormalization after non-unitary gate
+        if not is_unitary(gate) and renormalize_after_non_unitary:
+            norm = self.norm()
+
         # Connect the MPS and gate edges
         mps_edge = list(self._nodes[index].get_all_dangling())[0]
         gate_edge = gate[1]  # TODO: Is this the correct edge to use (always)?
@@ -360,9 +367,6 @@ class MPS:
         # Optional orthonormalization after a non-unitary gate
         # TODO: Allow for setting a different threshold in ortho funcs here.
         if not is_unitary(gate) and ortho_after_non_unitary:
-            # Store the norm to renormalize after
-            current_norm = self.norm()
-
             # Edge case: Left-most node
             if index == 0:
                 self.orthonormalize_right_edge_of(index)
@@ -376,8 +380,9 @@ class MPS:
                 self.orthonormalize_right_edge_of(index)
                 self.orthonormalize_left_edge_of(index)
 
-            # Renormalize
-            self.renormalize(current_norm)
+        # Optional renormalization after non-unitary gate
+        if not is_unitary(gate) and renormalize_after_non_unitary:
+            self.renormalize(norm)
 
     def orthonormalize_right_edge_of(
             self, node_index: int, threshold: float = 1e-8
