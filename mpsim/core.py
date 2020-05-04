@@ -295,7 +295,7 @@ class MPS:
         if to_norm <= 0.:
             raise ValueError(f"Arg to_norm must be positive but is {to_norm}")
 
-        if np.isclose(to_norm, 0., 1e-15):
+        if np.isclose(to_norm, 0., atol=1e-15):
             raise ValueError(
                 f"Arg to_norm = {to_norm} is too close to numerical zero."
             )
