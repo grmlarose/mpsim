@@ -145,56 +145,36 @@ class MPS:
         wavefunction = np.reshape(
             wavefunction, newshape=[qudit_dimension] * nqudits
         )
-        wavefunction = tn.Node(
+        to_split = tn.Node(
             wavefunction, axis_names=[str(i) for i in range(nqudits)]
         )
 
-        # Perform SVD on each cut
+        # Perform SVD across each cut
+        # TODO: There must be a better way of indexing edges...
         nodes = []
-        print("NQUDITS =", nqudits)
         for i in range(nqudits - 1):
-            print("==================")
-            print("Cutting edge i =", i)
-            print("==================")
             left_edges = []
             right_edges = []
-            print("PARSING EDGES")
-            for edge in wavefunction.get_all_dangling():
-                print("On edge", edge)
+            for edge in to_split.get_all_dangling():
                 if edge.name == str(i):
-                    print("Putting into left edges.")
                     left_edges.append(edge)
                 else:
-                    print("Putting into right edges.")
                     right_edges.append(edge)
             if nodes:
-                print("Adding connected edge to left_edges")
                 for edge in nodes[-1].get_all_nondangling():
-                    print("This connected edge =", edge)
-                    if wavefunction in edge.get_nodes():
-                        print("Adding to left edges")
+                    if to_split in edge.get_nodes():
                         left_edges.append(edge)
 
-            print("My left edges =", left_edges)
-            print("My right edges =", right_edges)
             left_node, right_node, _ = tn.split_node(
-                wavefunction,
+                to_split,
                 left_edges,
                 right_edges,
                 left_name=tensor_prefix + str(i)
             )
-            print("\nLeft node:")
-            print(left_node.tensor)
-            print(left_node.edges)
-
-            print("\nRight node:")
-            print(right_node.tensor)
-            print(right_node.edges)
-
             nodes.append(left_node)
-            wavefunction = right_node
-        right_node.name = tensor_prefix + str(nqudits - 1)
-        nodes.append(right_node)
+            to_split = right_node
+        to_split.name = tensor_prefix + str(nqudits - 1)
+        nodes.append(to_split)
 
         # Return the MPS
         mps = MPS(nqudits, qudit_dimension, tensor_prefix)
