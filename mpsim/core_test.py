@@ -219,6 +219,38 @@ def test_from_wavefunction_random_qubit_wavefunctions():
             assert np.allclose(mps.wavefunction, wavefunction)
 
 
+def test_from_wavefunction_random_qudit_wavefunctions():
+    """Tests correctness of MPS wavefunction for creating an MPS from
+    several initial random qudit wavefunctions.
+    """
+    np.random.seed(11)
+    for _ in range(100):
+        for n in range(2, 5):
+            for d in (2, 3, 4):
+                wavefunction = np.random.rand(d**n)
+                wavefunction /= np.linalg.norm(wavefunction, ord=2)
+                mps = MPS.from_wavefunction(
+                    wavefunction, nqudits=n, qudit_dimension=d
+                )
+                assert np.allclose(mps.wavefunction, wavefunction)
+
+
+def test_from_wavefunction_invalid_args():
+    """Tests MPS.from_wavefunction raises errors with invalid args."""
+    with pytest.raises(TypeError):
+        MPS.from_wavefunction({1, 2, 3, 4}, nqudits=2, qudit_dimension=2)
+
+    with pytest.raises(ValueError):
+        MPS.from_wavefunction([1., 0., 0., 0.], nqudits=3, qudit_dimension=2)
+
+    with pytest.raises(ValueError):
+        MPS.from_wavefunction([1., 0.], nqudits=1, qudit_dimension=2)
+
+    twod_wavefunction = np.array([[1., 0.], [0., 1.]])
+    with pytest.raises(ValueError):
+        MPS.from_wavefunction(twod_wavefunction, nqudits=2, qudit_dimension=2)
+
+
 def test_get_wavefunction_simple_qubits():
     """Tests getting the wavefunction of a simple qubit MPS."""
     mps = MPS(nqudits=3)
@@ -1053,7 +1085,7 @@ def test_renormalize_to_invalid_norms_raises_errors():
         mps.renormalize(to_norm=-3.14)
 
     with pytest.raises(ValueError):
-        mps.renormalize(to_norm=1e-10)
+        mps.renormalize(to_norm=1e-20)
 
 
 def test_apply_one_qubit_mps_operation_xgate():
