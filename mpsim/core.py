@@ -10,8 +10,7 @@ from mpsim.mpsim_cirq.circuits import MPSOperation
 
 
 class MPS:
-    """Matrix Product State (MPS) for simulating (noisy) quantum circuits."""
-
+    """Matrix Product State (MPS) for simulating quantum circuits."""
     def __init__(
             self,
             nqudits: int,
@@ -95,6 +94,112 @@ class MPS:
                 self._qudit_dimension ** (self._nqudits // 2)
             )
         self._fidelities = []  # type: List[float]
+
+    @staticmethod
+    def from_wavefunction(
+        wavefunction: np.ndarray,
+        nqudits: int,
+        qudit_dimension: int = 2,
+        tensor_prefix: str = "q"
+    ) -> 'MPS':
+        """Returns an MPS constructed from the initial wavefunction.
+
+        Args:
+            wavefunction: Vector (numpy array) representing the wavefunction.
+            nqudits: Number of qudits in the wavefunction.
+            qudit_dimension: Dimension of qudits. (Default is 2 for qubits.)
+            tensor_prefix: Prefix for tensor names.
+                The full name is prefix + numerical index, numbered from
+                left to right starting with zero.
+
+        Raises:
+            TypeError: Wavefunction is not a numpy.ndarray or cannot be
+                converted to one.
+            ValueError:
+                * Wavefunction is not one-dimensional (a vector).
+                * If the number of elements in the wavefunction is not
+                  equal to qudit_dimension ** num_qudits.
+                * nqudits is less than two.
+        """
+        if not isinstance(wavefunction, (list, tuple, np.ndarray)):
+            raise TypeError("Invalid type for wavefunction.")
+        wavefunction = np.array(wavefunction)
+
+        if len(wavefunction.shape) != 1:
+            raise ValueError(
+                "Invalid shape for wavefunction. Should be a vector."
+            )
+
+        if nqudits < 2:
+            raise ValueError("At least two qudits are required.")
+
+        if wavefunction.size != qudit_dimension ** nqudits:
+            raise ValueError(
+                "Mismatch between wavefunction, qudit_dimension, and nqudits. "
+                f"Expected {qudit_dimension ** nqudits} elements in the "
+                f"wavefunction, but wavefunction has {wavefunction.size} "
+                f"elements."
+            )
+
+        # Reshape the wavefunction
+        wavefunction = np.reshape(
+            wavefunction, newshape=[qudit_dimension] * nqudits
+        )
+        wavefunction = tn.Node(
+            wavefunction, axis_names=[str(i) for i in range(nqudits)]
+        )
+
+        # Perform SVD on each cut
+        nodes = []
+        print("NQUDITS =", nqudits)
+        for i in range(nqudits - 1):
+            print("==================")
+            print("Cutting edge i =", i)
+            print("==================")
+            left_edges = []
+            right_edges = []
+            print("PARSING EDGES")
+            for edge in wavefunction.get_all_dangling():
+                print("On edge", edge)
+                if edge.name == str(i):
+                    print("Putting into left edges.")
+                    left_edges.append(edge)
+                else:
+                    print("Putting into right edges.")
+                    right_edges.append(edge)
+            if nodes:
+                print("Adding connected edge to left_edges")
+                for edge in nodes[-1].get_all_nondangling():
+                    print("This connected edge =", edge)
+                    if wavefunction in edge.get_nodes():
+                        print("Adding to left edges")
+                        left_edges.append(edge)
+
+            print("My left edges =", left_edges)
+            print("My right edges =", right_edges)
+            left_node, right_node, _ = tn.split_node(
+                wavefunction,
+                left_edges,
+                right_edges,
+                left_name=tensor_prefix + str(i)
+            )
+            print("\nLeft node:")
+            print(left_node.tensor)
+            print(left_node.edges)
+
+            print("\nRight node:")
+            print(right_node.tensor)
+            print(right_node.edges)
+
+            nodes.append(left_node)
+            wavefunction = right_node
+        right_node.name = tensor_prefix + str(nqudits - 1)
+        nodes.append(right_node)
+
+        # Return the MPS
+        mps = MPS(nqudits, qudit_dimension, tensor_prefix)
+        mps._nodes = nodes
+        return mps
 
     @property
     def nqudits(self) -> int:
