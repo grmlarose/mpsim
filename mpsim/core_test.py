@@ -333,35 +333,27 @@ def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
     # Check that CNOT|10> = |10>
     mps = MPS(nqudits=2)
     mps.x(0)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([0.0, 0.0, 1.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
     # Check that CNOT|00> = |00>
     mps = MPS(nqudits=2)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
     # Check that CNOT|01> = |11>
     mps = MPS(nqudits=2)
     mps.x(1)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
     # Check that CNOT|11> = |01>
     mps = MPS(nqudits=2)
     mps.x(-1)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
@@ -377,20 +369,6 @@ def test_apply_twoq_identical_indices_raises_error():
         for mps in (mps2q, mps3q, mps9q):
             mps.apply_two_qubit_gate(cnot(), 0, 0)
             mps.cnot(1, 1)
-
-
-@pytest.mark.parametrize(["left"], [[True], [False]])
-def test_apply_twoq_gate_indexB_great_than_indexA_raise_error(left):
-    """Tests that a two-qubit gate with indexA > indexB raises an error.
-
-    TODO: This is really due to my inability to find the bug for this case.
-      We can get around this by, e.g. for a CNOT, conjugating by Hadamard gates
-      to flip control/target.
-    """
-    mps = MPS(nqudits=10)
-    with pytest.raises(ValueError):
-        mps.apply_two_qubit_gate(cnot(), 6, 5, keep_left_canonical=left)
-        mps.cnot(6, 5, keep_left_canonical=left)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -1016,7 +994,7 @@ def test_renormalize_to_invalid_norms_raises_errors():
         mps.renormalize(to_norm=-3.14)
 
     with pytest.raises(ValueError):
-        mps.renormalize(to_norm=1e-10)
+        mps.renormalize(to_norm=1e-20)
 
 
 def test_apply_one_qubit_mps_operation_xgate():

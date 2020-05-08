@@ -613,19 +613,36 @@ class MPS:
         if indexA < indexB:
             left_index = indexA
             right_index = indexB
+
+            _ = tn.connect(
+                list(self._nodes[indexA].get_all_dangling())[0],
+                gate.get_edge(0)
+            )
+            _ = tn.connect(
+                list(self._nodes[indexB].get_all_dangling())[0],
+                gate.get_edge(1)
+            )
+
+            # Store the free edges of the gate
+            left_gate_edge = gate.get_edge(2)
+            right_gate_edge = gate.get_edge(3)
+
         else:
-            raise ValueError(f"IndexA must be less than IndexB.")
+            left_index = indexB
+            right_index = indexA
 
-        _ = tn.connect(
-            list(self._nodes[indexA].get_all_dangling())[0], gate.get_edge(0)
-        )
-        _ = tn.connect(
-            list(self._nodes[indexB].get_all_dangling())[0], gate.get_edge(1)
-        )
+            _ = tn.connect(
+                list(self._nodes[indexA].get_all_dangling())[0],
+                gate.get_edge(2)
+            )
+            _ = tn.connect(
+                list(self._nodes[indexB].get_all_dangling())[0],
+                gate.get_edge(3)
+            )
 
-        # Store the free edges of the gate, using the docstring edge convention
-        left_gate_edge = gate.get_edge(2)
-        right_gate_edge = gate.get_edge(3)
+            # Store the free edges of the gate
+            left_gate_edge = gate.get_edge(1)
+            right_gate_edge = gate.get_edge(0)
 
         # Contract the tensors in the MPS
         new_node = tn.contract_between(
