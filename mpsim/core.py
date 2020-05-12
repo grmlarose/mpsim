@@ -703,8 +703,12 @@ class MPS:
         print("================= DEBUG =================")
         print("-------- In apply_two_qudit_gate --------")
         print("Computing the SVD of the tensor")
-        print(new_node)
+        print("Shape:", new_node.tensor.shape)
+        print("\nTensor:")
         print(new_node.tensor)
+        print("\nMatrix:")
+        d = new_node.tensor.shape[0] ** len(new_node.tensor.shape)
+        print(np.reshape(new_node.tensor, newshape=(d, d)))
         print(new_node.edges)
 
         u, s, vdag, truncated_svals = tn.split_node_full_svd(
