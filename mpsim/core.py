@@ -700,6 +700,13 @@ class MPS:
         if "maxsvals" in kwargs.keys():
             maxsvals = int(kwargs.get("maxsvals"))
 
+        print("================= DEBUG =================")
+        print("-------- In apply_two_qudit_gate --------")
+        print("Computing the SVD of the tensor")
+        print(new_node)
+        print(new_node.tensor)
+        print(new_node.edges)
+
         u, s, vdag, truncated_svals = tn.split_node_full_svd(
             new_node,
             left_edges=left_edges,
