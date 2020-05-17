@@ -8,7 +8,7 @@ import cirq
 import pytest
 
 from mpsim import MPS
-from mpsim.mpsim_cirq.circuits import MPSimCircuit, MPSOperation
+from mpsim.mpsim_cirq.circuits import MPSimCircuit
 from mpsim.mpsim_cirq.simulator import MPSimulator
 
 
@@ -250,3 +250,20 @@ def test_three_qubit_gate_raise_value_error():
     )
     with pytest.raises(ValueError):
         MPSimulator().simulate(circ)
+
+
+@pytest.mark.parametrize("nqubits", [2, 4, 8])
+def test_random_circuits(nqubits: int):
+    """Tests several random circuits and checks the output wavefunction against
+    the Cirq simulator.
+    """
+    np.random.seed(1)
+    for _ in range(50):
+        circuit = cirq.testing.random_circuit(
+            qubits=nqubits,
+            n_moments=20,
+            op_density=0.95
+        )
+        correct = circuit.final_wavefunction()
+        mps = MPSimulator().simulate(circuit)
+        assert np.allclose(mps.wavefunction, correct)

@@ -64,6 +64,7 @@ class MPSOperation:
                 f"Cannot convert operation {operation} into an MPS Operation"
                 " because the operation does not have a unitary."
             )
+
         tensor = operation._unitary_()
         tensor = np.reshape(
             tensor, newshape=[qudit_dimension] * qudit_dimension**num_qudits

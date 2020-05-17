@@ -686,29 +686,35 @@ class MPS:
                 " and zero connected edges."
             )
 
+        # Flip the "control"/"target" gate edges and tensor edges if needed
+        if indexB < indexA:
+            gate.reorder_edges([gate[1], gate[0], gate[3], gate[2]])
+            indexA, indexB = indexB, indexA
+
+        assert indexA < indexB
+
         # Swap tensors until adjacent if necessary
         invert_swap_network = False
-        if abs(indexA - indexB) != 1:
+        if indexA < indexB - 1:
             invert_swap_network = True
             original_indexA = indexA
             self.move_node_from_left_to_right(indexA, indexB - 1, **kwargs)
             indexA = indexB - 1
 
         # Connect the MPS tensors to the gate edges
-        if indexA < indexB:
-            left_index = indexA
-            right_index = indexB
-        else:
-            raise ValueError(f"IndexA must be less than IndexB.")
+        left_index = indexA
+        right_index = indexB
 
         _ = tn.connect(
-            list(self._nodes[indexA].get_all_dangling())[0], gate.get_edge(0)
+            list(self._nodes[indexA].get_all_dangling())[0],
+            gate.get_edge(0)
         )
         _ = tn.connect(
-            list(self._nodes[indexB].get_all_dangling())[0], gate.get_edge(1)
+            list(self._nodes[indexB].get_all_dangling())[0],
+            gate.get_edge(1)
         )
 
-        # Store the free edges of the gate, using the docstring edge convention
+        # Store the free edges of the gate
         left_gate_edge = gate.get_edge(2)
         right_gate_edge = gate.get_edge(3)
 

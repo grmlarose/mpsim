@@ -402,35 +402,27 @@ def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
     # Check that CNOT|10> = |10>
     mps = MPS(nqudits=2)
     mps.x(0)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([0.0, 0.0, 1.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
     # Check that CNOT|00> = |00>
     mps = MPS(nqudits=2)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
     # Check that CNOT|01> = |11>
     mps = MPS(nqudits=2)
     mps.x(1)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
     # Check that CNOT|11> = |01>
     mps = MPS(nqudits=2)
     mps.x(-1)
-    mps.h(-1)
-    mps.cnot(0, 1)
-    mps.h(-1)
+    mps.cnot(1, 0)
     correct = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction, correct)
 
@@ -446,20 +438,6 @@ def test_apply_twoq_identical_indices_raises_error():
         for mps in (mps2q, mps3q, mps9q):
             mps.apply_two_qubit_gate(cnot(), 0, 0)
             mps.cnot(1, 1)
-
-
-@pytest.mark.parametrize(["left"], [[True], [False]])
-def test_apply_twoq_gate_indexB_great_than_indexA_raise_error(left):
-    """Tests that a two-qubit gate with indexA > indexB raises an error.
-
-    TODO: This is really due to my inability to find the bug for this case.
-      We can get around this by, e.g. for a CNOT, conjugating by Hadamard gates
-      to flip control/target.
-    """
-    mps = MPS(nqudits=10)
-    with pytest.raises(ValueError):
-        mps.apply_two_qubit_gate(cnot(), 6, 5, keep_left_canonical=left)
-        mps.cnot(6, 5, keep_left_canonical=left)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -1394,10 +1372,8 @@ def test_max_bond_dimension_not_surpassed(chi: int):
         for i in range(nqubits):
             other_qubits = list(set(range(nqubits)) - {i})
             j = np.random.choice(other_qubits)
-            i, j = min(i, j), max(i, j)  # TODO: Rmv after asymmetric bug fixed
             op = MPSOperation(czgate, (i, j))
             mps.apply_mps_operation(op, maxsvals=chi)
 
-        print(mps.get_bond_dimensions())
         assert all(bond_dimension <= chi
                    for bond_dimension in mps.get_bond_dimensions())
