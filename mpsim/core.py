@@ -467,7 +467,6 @@ class MPS:
             self._nodes[node_index], self._nodes[node_index + 1]
         ).pop()
 
-    @property
     def wavefunction(self) -> np.array:
         """Returns the wavefunction of the MPS as a vector."""
         if not self.is_valid():

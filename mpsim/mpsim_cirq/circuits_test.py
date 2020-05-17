@@ -146,7 +146,7 @@ def test_convert_and_manually_simulate_circuit_two_qubits():
 
     # Check correctness for the final wavefunction
     correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 1.])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_convert_and_manually_simulate_circuit_nonlocal_operations_ghz_state():
@@ -178,4 +178,4 @@ def test_convert_and_manually_simulate_circuit_nonlocal_operations_ghz_state():
     # Check correctness for the final wavefunction
     correct = np.zeros(shape=(8,))
     correct[0] = correct[-1] = 1. / np.sqrt(2)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
