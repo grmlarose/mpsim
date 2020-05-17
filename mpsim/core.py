@@ -658,16 +658,24 @@ class MPS:
                 Must be between 0 and 1, inclusive.
 
         Notes:
-            Gate edge convention:
-                gate edge 0: Connects to tensor at indexA.
-                gate edge 1: Connects to tensor at indexB.
-                gate edge 2: Becomes free index of new tensor at indexA
-                              after contracting.
-                gate edge 3: Becomes free index of new tensor at indexB
-                              after contracting.
+            The following gate edge convention is used to connect gate edges to
+            MPS edges. Let `matrix` be a 4x4 (unitary) matrix. Then,
+
+            >>> matrix = np.reshape(matrix, newshape=(2, 2, 2, 2))
+            >>> gate = tn.Node(matrix)
+
+            ensures the edge convention below is upheld.
+
+            Gate edge convention (assuming indexA < indexB)
+                gate edge 2: Connects to tensor at indexA.
+                gate edge 3: Connects to tensor at indexB.
+                gate edge 0: Becomes free index of new tensor at indexA.
+                gate edge 1: Becomes free index of new tensor at indexB.
+
+            If indexA > indexB, 0 <--> 1 and 2 <--> 3.
         """
         if not self.is_valid():
-            raise ValueError("Input mpslist does not define a valid MPS.")
+            raise ValueError("MPS is not valid.")
 
         if (indexA not in range(self._nqudits)
                 or indexB not in range(self.nqudits)):
@@ -691,8 +699,6 @@ class MPS:
             gate.reorder_edges([gate[1], gate[0], gate[3], gate[2]])
             indexA, indexB = indexB, indexA
 
-        assert indexA < indexB
-
         # Swap tensors until adjacent if necessary
         invert_swap_network = False
         if indexA < indexB - 1:
@@ -706,17 +712,17 @@ class MPS:
         right_index = indexB
 
         _ = tn.connect(
-            list(self._nodes[indexA].get_all_dangling())[0],
-            gate.get_edge(0)
+            self.get_free_edge_of(index=indexA, copy=False),
+            gate.get_edge(2)
         )
         _ = tn.connect(
-            list(self._nodes[indexB].get_all_dangling())[0],
-            gate.get_edge(1)
+            self.get_free_edge_of(index=indexB, copy=False),
+            gate.get_edge(3)
         )
 
         # Store the free edges of the gate
-        left_gate_edge = gate.get_edge(2)
-        right_gate_edge = gate.get_edge(3)
+        left_gate_edge = gate.get_edge(0)
+        right_gate_edge = gate.get_edge(1)
 
         # Contract the tensors in the MPS
         new_node = tn.contract_between(

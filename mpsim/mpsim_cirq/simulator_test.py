@@ -1,5 +1,6 @@
 """Unit tests for MPSimulator."""
 
+from copy import deepcopy
 import numpy as np
 import sympy
 
@@ -10,6 +11,24 @@ import pytest
 from mpsim import MPS
 from mpsim.mpsim_cirq.circuits import MPSimCircuit
 from mpsim.mpsim_cirq.simulator import MPSimulator
+
+
+def test_empty_circuit_raises_error():
+    """Tests that an error is raised when an empty circuit is simulated."""
+    with pytest.raises(ValueError):
+        MPSimulator().simulate(cirq.Circuit())
+
+
+def test_simulate_identity_circuit():
+    """Tests simulating an identity circuit on three qubits."""
+    qreg = cirq.LineQubit.range(3)
+    circ = cirq.Circuit(
+        cirq.identity_each(qbit) for qbit in qreg
+    )
+    mps = MPSimulator().simulate(circ)
+    assert np.allclose(
+        mps.wavefunction, circ.final_wavefunction()
+    )
 
 
 def test_simulate_bell_state_cirq_circuit():
@@ -257,13 +276,82 @@ def test_random_circuits(nqubits: int):
     """Tests several random circuits and checks the output wavefunction against
     the Cirq simulator.
     """
+    # Gates to randomly choose from
+    gate_domain = {
+        cirq.ops.X: 1,
+        cirq.ops.Y: 1,
+        cirq.ops.Z: 1,
+        cirq.ops.H: 1,
+        cirq.ops.S: 1,
+        cirq.ops.T: 1,
+        cirq.ops.CNOT: 2,
+        cirq.ops.CZ: 2,
+        cirq.ops.SWAP: 2,
+        cirq.ops.CZPowGate(): 2,
+        cirq.ops.ISWAP: 2,
+        cirq.ops.FSimGate(theta=0.2, phi=0.3): 2,
+    }
+
     np.random.seed(1)
     for _ in range(50):
         circuit = cirq.testing.random_circuit(
             qubits=nqubits,
-            n_moments=20,
-            op_density=0.95
+            n_moments=25,
+            op_density=0.999,
+            gate_domain=gate_domain
         )
         correct = circuit.final_wavefunction()
         mps = MPSimulator().simulate(circuit)
         assert np.allclose(mps.wavefunction, correct)
+
+
+def test_custom_gates():
+    """Tests simulating a circuit with custom Cirq gates."""
+    class MyTwoQubitGate(cirq.TwoQubitGate):
+        def __init__(self, matrix):
+            super().__init__()
+            self._matrix = deepcopy(matrix)
+
+        def _unitary_(self):
+            return deepcopy(self._matrix)
+
+        def __repr__(self):
+            return "Random"
+
+    random = cirq.testing.random_unitary(dim=4, random_state=1)
+    rgate = MyTwoQubitGate(random)
+
+    qreg = cirq.LineQubit.range(2)
+    circ = cirq.Circuit(
+        rgate.on(qreg[0], qreg[1])
+    )
+
+    cirq_wavefunction = circ.final_wavefunction()
+    mpsim_wavefunction = MPSimulator().simulate(circ).wavefunction
+    assert np.allclose(mpsim_wavefunction, cirq_wavefunction)
+
+
+def test_simulate_sweep():
+    """Tests simulate_sweep with a parameterized circuit."""
+    qreg = cirq.LineQubit.range(2)
+    theta = sympy.Symbol("theta")
+    circ = cirq.Circuit(
+        cirq.rx(theta).on(qbit) for qbit in qreg
+    )
+    num_params = 50
+    param_resolvers = [
+        {"theta": theta} for theta in np.linspace(0, 2 * np.pi, num_params)
+    ]
+
+    sim = MPSimulator()
+    allmps = sim.simulate_sweep(
+        circ, param_resolvers
+    )
+    assert len(allmps) == num_params
+    all_wavefunctions = [mps.wavefunction for mps in allmps]
+    correct_wavefunctions = [
+        circ._resolve_parameters_(pr).final_wavefunction()
+        for pr in param_resolvers
+    ]
+    for (mpsim_wf, cirq_wf) in zip(all_wavefunctions, correct_wavefunctions):
+        assert np.allclose(mpsim_wf, cirq_wf)

@@ -67,7 +67,7 @@ class MPSOperation:
 
         tensor = operation._unitary_()
         tensor = np.reshape(
-            tensor, newshape=[qudit_dimension] * qudit_dimension**num_qudits
+            tensor, newshape=[qudit_dimension] * 2 * num_qudits
         )
         node = Node(tensor)
         return MPSOperation(node, qudit_indices, qudit_dimension)
