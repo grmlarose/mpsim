@@ -1,34 +1,27 @@
-# MPSIM
+# MPSim
 
-Code for using Matrix Product States to SIMulate (noisy) quantum circuits.
-
-# Contents
-
-```
-mpsim/
-    | core
-    | gates
-    | sim
-	mpsim_cirq/
-		| circuits
-		| simulator
-```
+Package for using Matrix Product States (MPS) to simulate quantum circuits.
 
 # Installation
 
 After cloning the repository, run
 
 ```bash
-pip install -e .[development]
+pip install -e .
 ```
 
 in the directory with `setup.py`.
 
 # Getting started
 
-The main object is `mpsim.MPS` which defines a one-dimensional matrix product state of qubits initialized to the all zero state.
+The main object is `mpsim.MPS` which defines a matrix product state of qudits initialized to the all zero state.
 
-An `MPS` can apply aribtrary one-qubit and nearest-neighbor two-qubit gates via the methods `MPS.apply_one_qubit_gate` and `MPS.apply_two_qubit_gate`. Gates must be expressed as `TensorNetwork.Node` objects with the appropriate number of edges. Some common gates are defined in `mpsim.gates` and convenience methods are included in `MPS` for common gates.
+An `MPS` can be acted on by aribtrary one-qudit and two-qudit operations. Operations on >=3 qubits are not supported and
+must be compiled into a sequence of one- and two-qudit operations.
+
+An `MPSOperation` consists of a gate and tuple of indices specifying which tensor(s) the gate acts on in the MPS.
+Gates must be expressed as `TensorNetwork.Node` objects with the appropriate number of edges.
+Some common gates are defined in `mpsim.gates`.
 
 The following program initializes an MPS in the |00> state and prepares a Bell state.
 
@@ -43,9 +36,9 @@ print(mps.wavefunction)
 # Displays [0.70710677+0.j 0.        +0.j 0.        +0.j 0.70710677+0.j]
 ```
 
-# Noisy simulation
+# Two-qubit gate options
 
-By truncating the number of singular values kept after a two-qubit gate, (some model of) noisy simulation can be emulated.
+The number of singular values kept for a two-qubit gate can be set by the keyword argument `maxsvals`.
 
 The following program prepares the same Bell state but only keeps one singular value after the CNOT.
 
@@ -60,7 +53,8 @@ print(mps.wavefunction)
 # Displays [0.70710674+0.j 0.        +0.j 0.        +0.j 0.        +0.j]
 ```
 
-Note that the wavefunction after truncation is not normalized.
+Note that the wavefunction after truncation is not normalized. An `MPS` can be renormalized at any time by calling the
+`MPS.renormalize()` method.
 
 # Cirq integration
 
@@ -84,7 +78,7 @@ print(mps.wavefunction)
 # Displays [0.70710677+0.j 0.        +0.j 0.        +0.j 0.70710677+0.j]
 ```
 
-Truncation can be done by passing in options to the `MPSimulator`.
+One can truncate singular values for two-qubit operations by passing in options to the `MPSimulator`.
 
 ```python
 sim = MPSimulator(options={"maxsvals": 1})
