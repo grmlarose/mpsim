@@ -53,6 +53,10 @@ class MPSOperation:
             CannotConvertToMPSOperation
                 If the gate operation does not have a _unitary_ method.
         """
+        print("========== In MPS.from_gate_operation ==========")
+        print("Input operation is:")
+        print(operation)
+
         num_qudits = len(operation.qubits)
         qudit_dimension = 2  # TODO: Check if all Cirq ops are qubit ops
         qudit_indices = tuple(
@@ -65,6 +69,9 @@ class MPSOperation:
                 " because the operation does not have a unitary."
             )
         tensor = operation._unitary_()
+        print("Unitary of operation is:")
+        print(tensor)
+
         tensor = np.reshape(
             tensor, newshape=[qudit_dimension] * qudit_dimension**num_qudits
         )
