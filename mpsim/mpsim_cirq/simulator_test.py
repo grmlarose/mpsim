@@ -257,13 +257,35 @@ def test_random_circuits(nqubits: int):
     """Tests several random circuits and checks the output wavefunction against
     the Cirq simulator.
     """
+    # Gates to randomly choose from
+    gate_domain = {
+        cirq.ops.X: 1,
+        cirq.ops.Y: 1,
+        cirq.ops.Z: 1,
+        cirq.ops.H: 1,
+        cirq.ops.S: 1,
+        cirq.ops.T: 1,
+        cirq.ops.CNOT: 2,
+        cirq.ops.CZ: 2,
+        cirq.ops.SWAP: 2,
+        cirq.ops.CZPowGate(): 2,
+        cirq.ops.ISWAP: 2,
+        cirq.ops.FSimGate(theta=0.2, phi=0.3): 2,
+    }
+
     np.random.seed(1)
     for _ in range(50):
         circuit = cirq.testing.random_circuit(
             qubits=nqubits,
-            n_moments=20,
-            op_density=0.95
+            n_moments=25,
+            op_density=0.999,
+            gate_domain=gate_domain
         )
         correct = circuit.final_wavefunction()
         mps = MPSimulator().simulate(circuit)
         assert np.allclose(mps.wavefunction, correct)
+
+
+def test_run_sweep():
+    """Tests run_sweep with a parameterized circuit."""
+    pass
