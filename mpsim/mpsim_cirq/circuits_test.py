@@ -3,56 +3,10 @@
 import numpy as np
 
 import cirq
-import tensornetwork as tn
 
 import mpsim
-from mpsim.mpsim_cirq.circuits import MPSimCircuit, MPSOperation
-
-
-def test_single_qubit_identity_mps_operation():
-    """Unit tests for a single-qubit identity MPS Operation."""
-    node = mpsim.gates.igate()
-    mps_operation = MPSOperation(node, qudit_indices=(0,), qudit_dimension=2)
-    assert mps_operation.qudit_indices == (0,)
-    assert mps_operation.qudit_dimension == 2
-    assert mps_operation.is_valid()
-    assert mps_operation.is_unitary()
-    assert mps_operation.is_single_qudit_operation()
-    assert not mps_operation.is_two_qudit_operation()
-
-
-def test_get_node_and_tensor_one_qubit_mps_operation():
-    """Tests getting the node of a one-qubit MPS Operation."""
-    np.random.seed(1)
-    tensor = np.random.randn(2, 2)
-    node = tn.Node(tensor)
-    mps_operation = MPSOperation(node, qudit_indices=(0,), qudit_dimension=2)
-    copy_node = mps_operation.node
-    # TODO: How to check Node equality with tensornetwork?
-    assert len(node.edges) == len(copy_node.edges)
-    # assert node == copy_node
-    copy_tensor = mps_operation.tensor()
-    assert np.allclose(tensor, copy_tensor)
-
-
-def test_two_qubit_mps_operation_cnot():
-    """Performs simple checks on a two-qubit CNOT MPS Operation."""
-    node = mpsim.gates.cnot()
-    mps_operation = MPSOperation(node, qudit_indices=(0, 1), qudit_dimension=2)
-    assert mps_operation.qudit_indices == (0, 1)
-    assert mps_operation.qudit_dimension == 2
-    assert not mps_operation.is_single_qudit_operation()
-    assert mps_operation.is_two_qudit_operation()
-
-
-def test_two_qubit_mps_operation_nonlocal_cnot():
-    """Performs simple checks on a two-qubit non-local CNOT MPS Operation."""
-    node = mpsim.gates.cnot()
-    mps_operation = MPSOperation(node, qudit_indices=(0, 2), qudit_dimension=2)
-    assert mps_operation.qudit_indices == (0, 2)
-    assert mps_operation.is_valid()
-    assert not mps_operation.is_single_qudit_operation()
-    assert mps_operation.is_two_qudit_operation()
+from mpsim import MPSOperation
+from mpsim.mpsim_cirq import MPSimCircuit
 
 
 def test_from_gate_operation_not_gate():

@@ -7,8 +7,10 @@ from cirq.sim import (
     SimulatesAmplitudes, SimulatesFinalState, SimulationTrialResult
 )
 
-from mpsim.core import MPS
-from mpsim.mpsim_cirq.circuits import MPSimCircuit, MPSOperation
+from mpsim import MPS
+from mpsim.mpsim_cirq.circuits import (
+    MPSimCircuit, mps_operation_from_gate_operation
+)
 
 
 class MPSimulator(SimulatesFinalState):
@@ -96,7 +98,7 @@ class MPSimulator(SimulatesFinalState):
             mps = MPS(nqudits=len(solved_circuit.all_qubits()))
             # TODO: Account for an input ordering of operations to apply here
             for gate_operation in solved_circuit.all_operations():
-                mps_operation = MPSOperation.from_gate_operation(
+                mps_operation = mps_operation_from_gate_operation(
                     gate_operation, qubit_to_index_map
                 )
                 mps.apply_mps_operation(mps_operation, **self._options)

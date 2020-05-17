@@ -1,12 +1,116 @@
 """Defines matrix product state class."""
 
-from typing import List, Optional, Sequence, Union
+from copy import deepcopy
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import tensornetwork as tn
 
 from mpsim.gates import hgate, rgate, xgate, cnot, swap, is_unitary
-from mpsim.mpsim_cirq.circuits import MPSOperation
+
+
+class CannotConvertToMPSOperation(Exception):
+    pass
+
+
+class MPSOperation:
+    """Defines an operation which an MPS can execute."""
+    def __init__(
+            self,
+            node: tn.Node,
+            qudit_indices: Tuple[int, ...],
+            qudit_dimension: int = 2
+    ) -> None:
+        """Constructor for an MPS Operation.
+
+        Args:
+            node: TensorNetwork node object representing a gate to apply.
+                   See Notes below.
+            qudit_indices: Indices of qubits to apply the gate to.
+            qudit_dimension: Dimension of qudit(s) to which the MPS Operation
+                              is applied. Default value is 2 (for qubits).
+
+        Notes:
+            Conventions for gates and edges.
+                TODO: Add explanation on edge conventions.
+        """
+        self._node = node
+        self._qudit_indices = tuple(qudit_indices)
+        self._qudit_dimension = int(qudit_dimension)
+
+    @property
+    def qudit_indices(self) -> Tuple[int, ...]:
+        """Returns the indices of the qudits that the MPS Operation acts on."""
+        return self._qudit_indices
+
+    @property
+    def qudit_dimension(self) -> int:
+        """Returns the dimension of the qudits the MPS Operation acts on."""
+        return self._qudit_dimension
+
+    @property
+    def num_qudits(self) -> int:
+        """Returns the number of qubits the MPS Operation acts on."""
+        return len(self._qudit_indices)
+
+    @property
+    def node(self) -> tn.Node:
+        """Returns the node of the MPS Operation."""
+        node_dict, _ = tn.copy([self._node])
+        return node_dict[self._node]
+
+    def tensor(self, reshape_to_square_matrix: bool = True) -> np.ndarray:
+        """Returns the tensor of the MPS Operation.
+
+        Args:
+            reshape_to_square_matrix: If True, the shape of the returned tensor
+                    is dim x dim where dim is the qudit dimension raised
+                    to the number of qudits that the MPS Operator acts on.
+        """
+        tensor = deepcopy(self._node.tensor)
+        if reshape_to_square_matrix:
+            dim = self._qudit_dimension ** self.num_qudits
+            tensor = np.reshape(
+                tensor, newshape=(dim, dim)
+            )
+        return tensor
+
+    def is_valid(self) -> bool:
+        """Returns True if the MPS Operation is valid, else False.
+
+        A valid MPS Operation meets the following criteria:
+            (1) Tensor of gate has shape (d, ..., d) where d is the qudit
+                dimension and there are d^num_qudits entries in the tuple.
+            (2) Tensor has 2n free edges where n = number of qudits.
+            (3) All tensor edges are free edges.
+        """
+        d = self._qudit_dimension
+        if not self._node.tensor.shape == tuple([d] * d ** self.num_qudits):
+            return False
+        if not len(self._node.get_all_edges()) == 2 * self.num_qudits:
+            return False
+        if self._node.has_nondangling_edge():
+            return False
+        return True
+
+    def is_unitary(self) -> bool:
+        """Returns True if the MPS Operation is unitary, else False.
+
+        An MPS Operation is unitary if its gate tensor U is unitary, i.e. if
+        U^dag @ U = U @ U^dag = I.
+        """
+        return is_unitary(self.tensor())
+
+    def is_single_qudit_operation(self) -> bool:
+        """Returns True if the MPS Operation acts on a single qudit."""
+        return self.num_qudits == 1
+
+    def is_two_qudit_operation(self) -> bool:
+        """Returns True if the MPS Operation acts on two qudits."""
+        return self.num_qudits == 2
+
+    def __str__(self):
+        return f"Tensor {self._node.name} on qudit(s) {self._qudit_indices}."
 
 
 class MPS:
