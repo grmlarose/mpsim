@@ -286,6 +286,27 @@ def test_random_circuits(nqubits: int):
         assert np.allclose(mps.wavefunction, correct)
 
 
-def test_run_sweep():
-    """Tests run_sweep with a parameterized circuit."""
-    pass
+def test_simulate_sweep():
+    """Tests simulate_sweep with a parameterized circuit."""
+    qreg = cirq.LineQubit.range(2)
+    theta = sympy.Symbol("theta")
+    circ = cirq.Circuit(
+        cirq.rx(theta).on(qbit) for qbit in qreg
+    )
+    num_params = 50
+    param_resolvers = [
+        {"theta": theta} for theta in np.linspace(0, 2 * np.pi, num_params)
+    ]
+
+    sim = MPSimulator()
+    allmps = sim.simulate_sweep(
+        circ, param_resolvers
+    )
+    assert len(allmps) == num_params
+    all_wavefunctions = [mps.wavefunction for mps in allmps]
+    correct_wavefunctions = [
+        circ._resolve_parameters_(pr).final_wavefunction()
+        for pr in param_resolvers
+    ]
+    for (mpsim_wf, cirq_wf) in zip(all_wavefunctions, correct_wavefunctions):
+        assert np.allclose(mpsim_wf, cirq_wf)
