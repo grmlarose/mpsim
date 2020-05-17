@@ -182,6 +182,75 @@ def test_get_left_and_get_right_connected_edges():
                     mps.get_left_connected_edge_of(i))
 
 
+def test_from_wavefunction_two_qubits_all_zero_state():
+    """Tests constructing an MPS from an initial wavefunction."""
+    wavefunction = np.array([1, 0, 0, 0])
+    mps = MPS.from_wavefunction(wavefunction, nqudits=2, qudit_dimension=2)
+    assert isinstance(mps, MPS)
+    assert mps.nqudits == 2
+    assert mps.qudit_dimension == 2
+    assert np.allclose(mps.wavefunction, wavefunction)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 1.)
+
+
+def test_from_wavefunction_three_qubits_all_zero_state():
+    """Tests constructing an MPS from an initial wavefunction."""
+    wavefunction = np.array([1, 0, 0, 0, 0, 0, 0, 0])
+    mps = MPS.from_wavefunction(wavefunction, nqudits=3, qudit_dimension=2)
+    assert isinstance(mps, MPS)
+    assert mps.nqudits == 3
+    assert mps.qudit_dimension == 2
+    assert np.allclose(mps.wavefunction, wavefunction)
+    assert mps.is_valid()
+    assert np.isclose(mps.norm(), 1.)
+
+
+def test_from_wavefunction_random_qubit_wavefunctions():
+    """Tests correctness of MPS wavefunction for creating an MPS from
+    several initial random wavefunctions.
+    """
+    np.random.seed(1)
+    for _ in range(100):
+        for n in range(2, 8):
+            wavefunction = np.random.rand(2**n)
+            wavefunction /= np.linalg.norm(wavefunction, ord=2)
+            mps = MPS.from_wavefunction(wavefunction, nqudits=n)
+            assert np.allclose(mps.wavefunction, wavefunction)
+
+
+def test_from_wavefunction_random_qudit_wavefunctions():
+    """Tests correctness of MPS wavefunction for creating an MPS from
+    several initial random qudit wavefunctions.
+    """
+    np.random.seed(11)
+    for _ in range(100):
+        for n in range(2, 5):
+            for d in (2, 3, 4):
+                wavefunction = np.random.rand(d**n)
+                wavefunction /= np.linalg.norm(wavefunction, ord=2)
+                mps = MPS.from_wavefunction(
+                    wavefunction, nqudits=n, qudit_dimension=d
+                )
+                assert np.allclose(mps.wavefunction, wavefunction)
+
+
+def test_from_wavefunction_invalid_args():
+    """Tests MPS.from_wavefunction raises errors with invalid args."""
+    with pytest.raises(TypeError):
+        MPS.from_wavefunction({1, 2, 3, 4}, nqudits=2, qudit_dimension=2)
+
+    with pytest.raises(ValueError):
+        MPS.from_wavefunction([1., 0., 0., 0.], nqudits=3, qudit_dimension=2)
+
+    with pytest.raises(ValueError):
+        MPS.from_wavefunction([1., 0.], nqudits=1, qudit_dimension=2)
+
+    twod_wavefunction = np.array([[1., 0.], [0., 1.]])
+    with pytest.raises(ValueError):
+        MPS.from_wavefunction(twod_wavefunction, nqudits=2, qudit_dimension=2)
+
+
 def test_get_wavefunction_simple_qubits():
     """Tests getting the wavefunction of a simple qubit MPS."""
     mps = MPS(nqudits=3)
@@ -1279,3 +1348,34 @@ def test_renormalize_after_non_unitary():
                 renormalize_after_non_unitary=True
             )
             assert np.isclose(mps.norm(), 1.)
+
+
+@pytest.mark.parametrize("chi", [16, 32, 64, 128])
+def test_max_bond_dimension_not_surpassed(chi: int):
+    """Applies operations with a max chi value and ensures the bond dimensions
+    of the tensors never gets bigger than chi.
+    """
+    nqubits = 10
+    depth = 10
+    mps = MPS(nqudits=nqubits, qudit_dimension=2)
+
+    singles = (hgate(), xgate(), zgate())
+    czgate = cphase(exp=0.5)
+
+    # Apply operations
+    for _ in range(depth):
+        for i in range(nqubits):
+            gate = np.random.choice(singles)
+            op = MPSOperation(gate, (i,))
+            mps.apply_mps_operation(op)
+
+        for i in range(nqubits):
+            other_qubits = list(set(range(nqubits)) - {i})
+            j = np.random.choice(other_qubits)
+            i, j = min(i, j), max(i, j)  # TODO: Rmv after asymmetric bug fixed
+            op = MPSOperation(czgate, (i, j))
+            mps.apply_mps_operation(op, maxsvals=chi)
+
+        print(mps.get_bond_dimensions())
+        assert all(bond_dimension <= chi
+                   for bond_dimension in mps.get_bond_dimensions())

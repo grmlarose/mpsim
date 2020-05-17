@@ -10,8 +10,7 @@ from mpsim.mpsim_cirq.circuits import MPSOperation
 
 
 class MPS:
-    """Matrix Product State (MPS) for simulating (noisy) quantum circuits."""
-
+    """Matrix Product State (MPS) for simulating quantum circuits."""
     def __init__(
             self,
             nqudits: int,
@@ -95,6 +94,92 @@ class MPS:
                 self._qudit_dimension ** (self._nqudits // 2)
             )
         self._fidelities = []  # type: List[float]
+
+    @staticmethod
+    def from_wavefunction(
+        wavefunction: np.ndarray,
+        nqudits: int,
+        qudit_dimension: int = 2,
+        tensor_prefix: str = "q"
+    ) -> 'MPS':
+        """Returns an MPS constructed from the initial wavefunction.
+
+        Args:
+            wavefunction: Vector (numpy array) representing the wavefunction.
+            nqudits: Number of qudits in the wavefunction.
+            qudit_dimension: Dimension of qudits. (Default is 2 for qubits.)
+            tensor_prefix: Prefix for tensor names.
+                The full name is prefix + numerical index, numbered from
+                left to right starting with zero.
+
+        Raises:
+            TypeError: Wavefunction is not a numpy.ndarray or cannot be
+                converted to one.
+            ValueError:
+                * Wavefunction is not one-dimensional (a vector).
+                * If the number of elements in the wavefunction is not
+                  equal to qudit_dimension ** num_qudits.
+                * nqudits is less than two.
+        """
+        if not isinstance(wavefunction, (list, tuple, np.ndarray)):
+            raise TypeError("Invalid type for wavefunction.")
+        wavefunction = np.array(wavefunction)
+
+        if len(wavefunction.shape) != 1:
+            raise ValueError(
+                "Invalid shape for wavefunction. Should be a vector."
+            )
+
+        if nqudits < 2:
+            raise ValueError("At least two qudits are required.")
+
+        if wavefunction.size != qudit_dimension ** nqudits:
+            raise ValueError(
+                "Mismatch between wavefunction, qudit_dimension, and nqudits. "
+                f"Expected {qudit_dimension ** nqudits} elements in the "
+                f"wavefunction, but wavefunction has {wavefunction.size} "
+                f"elements."
+            )
+
+        # Reshape the wavefunction
+        wavefunction = np.reshape(
+            wavefunction, newshape=[qudit_dimension] * nqudits
+        )
+        to_split = tn.Node(
+            wavefunction, axis_names=[str(i) for i in range(nqudits)]
+        )
+
+        # Perform SVD across each cut
+        # TODO: There must be a better way of indexing edges...
+        nodes = []
+        for i in range(nqudits - 1):
+            left_edges = []
+            right_edges = []
+            for edge in to_split.get_all_dangling():
+                if edge.name == str(i):
+                    left_edges.append(edge)
+                else:
+                    right_edges.append(edge)
+            if nodes:
+                for edge in nodes[-1].get_all_nondangling():
+                    if to_split in edge.get_nodes():
+                        left_edges.append(edge)
+
+            left_node, right_node, _ = tn.split_node(
+                to_split,
+                left_edges,
+                right_edges,
+                left_name=tensor_prefix + str(i)
+            )
+            nodes.append(left_node)
+            to_split = right_node
+        to_split.name = tensor_prefix + str(nqudits - 1)
+        nodes.append(to_split)
+
+        # Return the MPS
+        mps = MPS(nqudits, qudit_dimension, tensor_prefix)
+        mps._nodes = nodes
+        return mps
 
     @property
     def nqudits(self) -> int:
@@ -606,7 +691,7 @@ class MPS:
         if abs(indexA - indexB) != 1:
             invert_swap_network = True
             original_indexA = indexA
-            self.move_node_from_left_to_right(indexA, indexB - 1)
+            self.move_node_from_left_to_right(indexA, indexB - 1, **kwargs)
             indexA = indexB - 1
 
         # Connect the MPS tensors to the gate edges
@@ -741,7 +826,7 @@ class MPS:
 
         # Invert the Swap network, if necessary
         if invert_swap_network:
-            self.move_node_from_right_to_left(indexA, original_indexA)
+            self.move_node_from_right_to_left(indexA, original_indexA, **kwargs)
 
         # TODO: Remove. This is only for convenience in benchmarking.
         self._fidelities.append(self.norm())
