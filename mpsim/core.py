@@ -129,7 +129,7 @@ class MPSOperation:
         An MPS Operation is unitary if its gate tensor U is unitary, i.e. if
         U^dag @ U = U @ U^dag = I.
         """
-        return is_unitary(self.tensor())
+        return is_unitary(self.tensor(reshape_to_square_matrix=True))
 
     def is_single_qudit_operation(self) -> bool:
         """Returns True if the MPS Operation acts on a single qudit."""
@@ -144,14 +144,14 @@ class MPSOperation:
 
 
 class MPS:
-    """Matrix Product State (MPS) for simulating quantum circuits."""
+    """Matrix Product State (MPS) object."""
     def __init__(
-            self,
-            nqudits: int,
-            qudit_dimension: int = 2,
-            tensor_prefix: str = "q"
+        self,
+        nqudits: int,
+        qudit_dimension: int = 2,
+        tensor_prefix: str = "q"
     ) -> None:
-        """Initializes an MPS of qudits in the all |0> state.
+        """Initializes an MPS of qudits in the ground (all-zero) state.
 
         The MPS has the following structure (shown for six qudits):
 
@@ -180,9 +180,9 @@ class MPS:
                     [[[1.0]], *[[[0]]] * (qudit_dimension - 1)],
                     dtype=np.complex64
                 ),
-                name=tensor_prefix + str(x + 1),
+                name=tensor_prefix + str(i + 1),
             )
-            for x in range(nqudits - 2)
+            for i in range(nqudits - 2)
         ]
 
         # Set nodes on the left and right edges
@@ -284,7 +284,6 @@ class MPS:
         )
 
         # Perform SVD across each cut
-        # TODO: There must be a better way of indexing edges...
         nodes = []
         for i in range(nqudits - 1):
             left_edges = []
@@ -325,55 +324,56 @@ class MPS:
         """Returns the dimension of each qudit in the MPS."""
         return self._qudit_dimension
 
-    def get_bond_dimension_of(self, index: int) -> int:
+    def bond_dimension_of(self, node_index: int) -> int:
         """Returns the bond dimension of the right edge of the node
         at the given index.
 
         Args:
-            index: Index of the node.
+            node_index: Index of the node.
                 The returned bond dimension is that of the right edge
                 of the given node.
         """
         if not self.is_valid():
             raise ValueError("MPS is invalid.")
 
-        if index >= self._nqudits:
+        if node_index >= self._nqudits:
             raise ValueError(
-                f"Index should be less than {self._nqudits} but is {index}."
+                f"Index should be less than {self._nqudits} but is {node_index}."
             )
 
-        left = self.get_node(index, copy=False)
-        right = self.get_node(index + 1, copy=False)
+        left = self.get_node(node_index, copy=False)
+        right = self.get_node(node_index + 1, copy=False)
         tn.check_connected((left, right))
         edge = tn.get_shared_edges(left, right).pop()
         return edge.dimension
 
-    def get_bond_dimensions(self) -> List[int]:
-        """Returns the bond dimensions of the MPS."""
-        return [self.get_bond_dimension_of(i) for i in range(self._nqudits - 1)]
+    def bond_dimensions(self) -> List[int]:
+        """Returns the bond dimension of each edge in the MPS."""
+        return [self.bond_dimension_of(i) for i in range(self._nqudits - 1)]
 
-    def get_max_bond_dimension_of(self, index: int) -> int:
+    def max_bond_dimension_of(self, edge_index: int) -> int:
         """Returns the maximum bond dimension of the right edge
         of the node at the given index.
 
         Args:
-            index: Index of the node.
+            edge_index: Index of the node.
                 The returned bond dimension is that of the right edge
                 of the given node.
                 Negative indices count backwards from the right of the MPS.
         """
-        if index >= self._nqudits:
+        if edge_index >= self._nqudits:
             raise ValueError(
-                f"Index should be less than {self._nqudits} but is {index}."
+                f"Edge index should be less than {self._nqudits} "
+                f"but is {edge_index}."
             )
-        return self._max_bond_dimensions[index]
+        return self._max_bond_dimensions[edge_index]
 
-    def get_max_bond_dimensions(self) -> List[int]:
+    def max_bond_dimensions(self) -> List[int]:
         """Returns the maximum bond dimensions of the MPS."""
         return self._max_bond_dimensions
 
     def is_valid(self) -> bool:
-        """Returns true if the mpslist defines a valid MPS, else False.
+        """Returns true if the MPS is valid, else False.
 
         A valid MPS satisfies the following criteria:
             (1) At least two tensors.
@@ -406,56 +406,65 @@ class MPS:
         return True
 
     def get_nodes(self, copy: bool = True) -> List[tn.Node]:
-        """Returns """
+        """Returns the nodes of the MPS.
+
+        Args:
+            copy: If True, a copy of the nodes are returned, else the actual
+                nodes are returned.
+        """
         if not copy:
             return self._nodes
         nodes_dict, _ = tn.copy(self._nodes)
         return list(nodes_dict.values())
 
-    def get_node(self, i: int, copy: bool = True) -> tn.Node:
+    def get_node(self, node_index: int, copy: bool = True) -> tn.Node:
         """Returns the ith node in the MPS counting from the left.
 
         Args:
-            i: Index of node to get.
+            node_index: Index of node to get.
             copy: If true, a copy of the node is returned,
-                   else the actual node is returned.
+                else the actual node is returned.
         """
-        return self.get_nodes(copy)[i]
+        return self.get_nodes(copy)[node_index]
 
-    def get_free_edge_of(self, index: int, copy: bool = True) -> tn.Edge:
+    def get_free_edge_of(self, node_index: int, copy: bool = True) -> tn.Edge:
         """Returns the free (dangling) edge of a node with specified index.
         
         Args:
-            index: Specifies the node.
+            node_index: Specifies the node.
             copy: If True, returns a copy of the edge.
-                  If False, returns the actual edge.
+                If False, returns the actual edge.
         """
-        return self.get_node(index, copy).get_all_dangling().pop()
+        return self.get_node(node_index, copy).get_all_dangling().pop()
 
-    def get_left_connected_edge_of(self, index: int) -> Union[tn.Edge, None]:
+    def get_left_connected_edge_of(
+            self, node_index: int
+    ) -> Union[tn.Edge, None]:
         """Returns the left connected edge of the specified node, if it exists.
 
         Args:
-            index: Index of node to get the left connected edge of.
+            node_index: Index of node to get the left connected edge of.
         """
-        if index == 0:
+        if node_index == 0:
             return None
 
         return tn.get_shared_edges(
-            self._nodes[index], self._nodes[index - 1]
+            self._nodes[node_index], self._nodes[node_index - 1]
         ).pop()
 
-    def get_right_connected_edge_of(self, index: int) -> Union[tn.Edge, None]:
+    def get_right_connected_edge_of(
+            self, node_index: int
+    ) -> Union[tn.Edge, None]:
         """Returns the left connected edge of the specified node, if it exists.
 
         Args:
-            index: Index of node to get the right connected edge of.
+            node_index: Index of node to get the right connected edge of.
         """
-        if index == self._nqudits - 1:
+        if node_index == self._nqudits - 1:
             return None
 
         return tn.get_shared_edges(
-            self._nodes[index], self._nodes[index + 1]
+            self._nodes[node_index], self._nodes[node_index + 1]
         ).pop()
 
     @property
@@ -846,11 +855,11 @@ class MPS:
         right_index = indexB
 
         _ = tn.connect(
-            self.get_free_edge_of(index=indexA, copy=False),
+            self.get_free_edge_of(node_index=indexA, copy=False),
             gate.get_edge(2)
         )
         _ = tn.connect(
-            self.get_free_edge_of(index=indexB, copy=False),
+            self.get_free_edge_of(node_index=indexB, copy=False),
             gate.get_edge(3)
         )
 
@@ -921,7 +930,7 @@ class MPS:
                     "Keyword fraction must be between 0 and 1 but is", fraction
                 )
             maxsvals = int(
-                round(fraction * self.get_max_bond_dimension_of(
+                round(fraction * self.max_bond_dimension_of(
                     min(indexA, indexB)
                 ))
             )

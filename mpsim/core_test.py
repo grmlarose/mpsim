@@ -133,11 +133,11 @@ def test_get_max_bond_dimension_qubits():
     """Tests correctness for getting maximum bond dimensions in a qubit MPS."""
     mps = MPS(nqudits=10)
     # Correct max bond dimensions: [2, 4, 8, 16, 32, 16, 8, 4, 2]
-    assert mps.get_max_bond_dimension_of(0) == 2
-    assert mps.get_max_bond_dimension_of(-1) == 2
-    assert mps.get_max_bond_dimension_of(3) == 16
-    assert mps.get_max_bond_dimension_of(4) == 32
-    assert mps.get_max_bond_dimension_of(5) == 16
+    assert mps.max_bond_dimension_of(0) == 2
+    assert mps.max_bond_dimension_of(-1) == 2
+    assert mps.max_bond_dimension_of(3) == 16
+    assert mps.max_bond_dimension_of(4) == 32
+    assert mps.max_bond_dimension_of(5) == 16
 
 
 def test_get_max_bond_dimension_qudits():
@@ -145,11 +145,11 @@ def test_get_max_bond_dimension_qudits():
     d = 10
     mps = MPS(nqudits=6, qudit_dimension=d)
     # Correct max bond dimensions: [10, 100, 1000, 100, 10]
-    assert mps.get_max_bond_dimension_of(0) == d
-    assert mps.get_max_bond_dimension_of(1) == d**2
-    assert mps.get_max_bond_dimension_of(2) == d**3
-    assert mps.get_max_bond_dimension_of(3) == d**2
-    assert mps.get_max_bond_dimension_of(-1) == d
+    assert mps.max_bond_dimension_of(0) == d
+    assert mps.max_bond_dimension_of(1) == d ** 2
+    assert mps.max_bond_dimension_of(2) == d ** 3
+    assert mps.max_bond_dimension_of(3) == d ** 2
+    assert mps.max_bond_dimension_of(-1) == d
 
 
 def test_get_bond_dimensions_product_state():
@@ -157,7 +157,7 @@ def test_get_bond_dimensions_product_state():
     n = 5
     for d in range(3, 10):
         mps = MPS(nqudits=n, qudit_dimension=d)
-        assert mps.get_bond_dimensions() == [1] * (n - 1)
+        assert mps.bond_dimensions() == [1] * (n - 1)
 
 
 def test_get_free_edge_of():
@@ -932,14 +932,14 @@ def test_bond_dimension_doubles_two_qubit_gate():
     two-qubit gate to a product state.
     """
     mps = MPS(nqudits=2)
-    assert mps.get_bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(0) == 1
     mps.h(0)
-    assert mps.get_bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(0) == 1
     mps.cnot(0, 1)
     assert mps.is_valid()
-    assert mps.get_bond_dimension_of(0) == 2
+    assert mps.bond_dimension_of(0) == 2
     mps.cnot(0, 1)
-    assert mps.get_bond_dimension_of(0) == 2
+    assert mps.bond_dimension_of(0) == 2
 
 
 def test_keep_half_bond_dimension_singular_values():
@@ -948,27 +948,27 @@ def test_keep_half_bond_dimension_singular_values():
     """
     # Get an MPS and test the initial bond dimensions and max bond dimensions
     mps = MPS(nqudits=4)
-    assert mps.get_bond_dimensions() == [1, 1, 1]
-    assert mps.get_max_bond_dimensions() == [2, 4, 2]
+    assert mps.bond_dimensions() == [1, 1, 1]
+    assert mps.max_bond_dimensions() == [2, 4, 2]
     
     # Apply a two qubit gate explicitly keeping all singular values
     mps.r(-1)
     mps.apply_two_qubit_gate(
         cnot(), 0, 1, fraction=1,
     )
-    assert mps.get_bond_dimensions() == [2, 1, 1]
+    assert mps.bond_dimensions() == [2, 1, 1]
     
     # Get an MPS and test the initial bond dimensions and max bond dimensions
     mps = MPS(nqudits=4)
-    assert mps.get_bond_dimensions() == [1, 1, 1]
-    assert mps.get_max_bond_dimensions() == [2, 4, 2]
+    assert mps.bond_dimensions() == [1, 1, 1]
+    assert mps.max_bond_dimensions() == [2, 4, 2]
     
     # Apply a two qubit gate keeping half the singular values
     mps.r(-1)
     mps.apply_two_qubit_gate(
         cnot(), 0, 1, fraction=0.5
     )
-    assert mps.get_bond_dimensions() == [1, 1, 1]
+    assert mps.bond_dimensions() == [1, 1, 1]
     
     
 def test_norm_two_qubit_product_simple():
@@ -1192,21 +1192,21 @@ def test_valid_after_orthonormalize_right_edges():
     mps_operations = [MPSOperation(hgate(), (i,)) for i in range(n)]
     mps.apply_mps_operations(mps_operations)
     wavefunction_before = mps.wavefunction
-    assert mps.get_bond_dimension_of(0) == 1
-    assert mps.get_bond_dimension_of(1) == 1
+    assert mps.bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(1) == 1
 
     # Orthonormalize the right edge of the first node
     mps.orthonormalize_right_edge_of(0)
     assert mps.is_valid()
-    assert mps.get_bond_dimension_of(0) == 1
-    assert mps.get_bond_dimension_of(1) == 1
+    assert mps.bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(1) == 1
     assert np.allclose(mps.wavefunction, wavefunction_before)
 
     # Orthonormalize the right edge of the second node
     mps.orthonormalize_right_edge_of(1)
     assert mps.is_valid()
-    assert mps.get_bond_dimension_of(0) == 1
-    assert mps.get_bond_dimension_of(1) == 1
+    assert mps.bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(1) == 1
     assert np.allclose(mps.wavefunction, wavefunction_before)
 
 
@@ -1221,7 +1221,7 @@ def test_apply_povm_product_state():
     mps_operations = [MPSOperation(hgate(), (i,)) for i in range(n)]
     mps.apply_mps_operations(mps_operations)  # State |+++>
     assert np.isclose(mps.norm(), 1.0)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert mps.bond_dimensions() == [1, 1]
 
     # Apply |0><0| to the first qubit
     mps.apply_one_qubit_gate(
@@ -1232,7 +1232,7 @@ def test_apply_povm_product_state():
     )  # State: 1 / sqrt(2) * |0++>
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert mps.bond_dimensions() == [1, 1]
     correct = 1. / np.sqrt(2)**3 * np.array([1] * 4 + [0] * 4)
     assert np.allclose(mps.wavefunction, correct)
 
@@ -1245,7 +1245,7 @@ def test_apply_povm_product_state():
     )  # State: 1 / 2 * |00+>
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.25)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert mps.bond_dimensions() == [1, 1]
     correct = 1. / np.sqrt(2)**3 * np.array([1] * 2 + [0] * 6)
     assert np.allclose(mps.wavefunction, correct)
 
@@ -1258,7 +1258,7 @@ def test_apply_povm_product_state():
     )  # State: 1 / sqrt(2)**3 * |000>
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.125)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert mps.bond_dimensions() == [1, 1]
     correct = 1. / np.sqrt(2) ** 3 * np.array([1] * 1 + [0] * 7)
     assert np.allclose(mps.wavefunction, correct)
 
@@ -1277,7 +1277,7 @@ def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
     ]
     mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
     assert np.isclose(mps.norm(), 1.0)
-    assert mps.get_bond_dimensions() == [2]
+    assert mps.bond_dimensions() == [2]
     wavefunction_before = mps.wavefunction
 
     # Check that orthonormalization does nothing to the Bell state
@@ -1285,7 +1285,7 @@ def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 1.0)
     assert np.allclose(mps.wavefunction, wavefunction_before)
-    assert mps.get_bond_dimensions() == [2]
+    assert mps.bond_dimensions() == [2]
 
     # Apply |0><0| to the first qubit
     mps.apply_one_qubit_gate(
@@ -1298,14 +1298,14 @@ def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
     assert np.isclose(mps.norm(), 0.5)
     correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
     assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [2]
+    assert mps.bond_dimensions() == [2]
 
     # Now do the orthonormalization to reduce the bond dimension
     mps.orthonormalize_right_edge_of(node_index=0)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
     assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [1]
+    assert mps.bond_dimensions() == [1]
 
 
 def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
@@ -1322,7 +1322,7 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
     ]
     mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
     assert np.isclose(mps.norm(), 1.0)
-    assert mps.get_bond_dimensions() == [2]
+    assert mps.bond_dimensions() == [2]
     wavefunction_before = mps.wavefunction
 
     # Check that orthonormalization does nothing to the Bell state
@@ -1330,7 +1330,7 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 1.0)
     assert np.allclose(mps.wavefunction, wavefunction_before)
-    assert mps.get_bond_dimensions() == [2]
+    assert mps.bond_dimensions() == [2]
 
     # Apply |0><0| to the second qubit
     mps.apply_one_qubit_gate(
@@ -1343,14 +1343,14 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
     assert np.isclose(mps.norm(), 0.5)
     correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
     assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [2]
+    assert mps.bond_dimensions() == [2]
 
     # Now do the orthonormalization to reduce the bond dimension
     mps.orthonormalize_left_edge_of(node_index=1)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 0.5)
     assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [1]
+    assert mps.bond_dimensions() == [1]
 
 
 def test_orthonormalize_all_tensors_edge_cases():
@@ -1419,4 +1419,4 @@ def test_max_bond_dimension_not_surpassed(chi: int):
             mps.apply_mps_operation(op, maxsvals=chi)
 
         assert all(bond_dimension <= chi
-                   for bond_dimension in mps.get_bond_dimensions())
+                   for bond_dimension in mps.bond_dimensions())
