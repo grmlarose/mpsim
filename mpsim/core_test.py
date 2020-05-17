@@ -1372,10 +1372,8 @@ def test_max_bond_dimension_not_surpassed(chi: int):
         for i in range(nqubits):
             other_qubits = list(set(range(nqubits)) - {i})
             j = np.random.choice(other_qubits)
-            i, j = min(i, j), max(i, j)  # TODO: Rmv after asymmetric bug fixed
             op = MPSOperation(czgate, (i, j))
             mps.apply_mps_operation(op, maxsvals=chi)
 
-        print(mps.get_bond_dimensions())
         assert all(bond_dimension <= chi
                    for bond_dimension in mps.get_bond_dimensions())
