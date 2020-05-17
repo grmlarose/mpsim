@@ -16,25 +16,50 @@ class CannotConvertToMPSOperation(Exception):
 class MPSOperation:
     """Defines an operation which an MPS can execute."""
     def __init__(
-            self,
-            node: tn.Node,
-            qudit_indices: Tuple[int, ...],
-            qudit_dimension: int = 2
+        self,
+        node: tn.Node,
+        qudit_indices: Union[int, Tuple[int, ...]],
+        qudit_dimension: int = 2
     ) -> None:
-        """Constructor for an MPS Operation.
+        """Initialize an MPS Operation.
 
         Args:
             node: TensorNetwork node object representing a gate to apply.
-                   See Notes below.
-            qudit_indices: Indices of qubits to apply the gate to.
+                See Notes below.
+            qudit_indices: Index/indices of qudits to apply the gate to.
+                In an MPS, qudits are indexed from the left starting at zero.
             qudit_dimension: Dimension of qudit(s) to which the MPS Operation
-                              is applied. Default value is 2 (for qubits).
+                is applied. Default value is 2 (for qubits).
 
         Notes:
-            Conventions for gates and edges.
-                TODO: Add explanation on edge conventions.
+            The following gate edge conventions describe which edges connect
+            to which MPS tensors in one-qudit and two-qudit MPS operations.
+
+            For single qudit gates:
+                gate edge 1: Connects to the tensor in the MPS.
+                gate edge 0: Becomes the free edge of the new MPS tensor.
+
+            For two qudit gates:
+
+                Let `matrix` be a 4x4 (unitary) matrix which acts on MPS tensors
+                at index1 and index2.
+
+                >>> matrix = np.reshape(matrix, newshape=(2, 2, 2, 2))
+                >>> gate = tn.Node(matrix)
+
+                ensures the edge convention below is upheld.
+
+                Gate edge convention (assuming index1 < index2)
+                    gate edge 2: Connects to tensor at indexA.
+                    gate edge 3: Connects to tensor at indexB.
+                    gate edge 0: Becomes free index of new tensor at indexA.
+                    gate edge 1: Becomes free index of new tensor at indexB.
+
+                If index1 > index2, 0 <--> 1 and 2 <--> 3.
         """
         self._node = node
+        if isinstance(qudit_indices, int):
+            qudit_indices = (qudit_indices,)
         self._qudit_indices = tuple(qudit_indices)
         self._qudit_dimension = int(qudit_dimension)
 
@@ -53,14 +78,19 @@ class MPSOperation:
         """Returns the number of qubits the MPS Operation acts on."""
         return len(self._qudit_indices)
 
-    @property
-    def node(self) -> tn.Node:
-        """Returns the node of the MPS Operation."""
+    def node(self, copy: bool = True) -> tn.Node:
+        """Returns the node of the MPS Operation.
+
+        Args:
+            copy: If True, a copy of the node object is returned.
+        """
+        if not copy:
+            return self._node
         node_dict, _ = tn.copy([self._node])
         return node_dict[self._node]
 
     def tensor(self, reshape_to_square_matrix: bool = True) -> np.ndarray:
-        """Returns the tensor of the MPS Operation.
+        """Returns a copy of the tensor of the MPS Operation.
 
         Args:
             reshape_to_square_matrix: If True, the shape of the returned tensor
@@ -80,12 +110,12 @@ class MPSOperation:
 
         A valid MPS Operation meets the following criteria:
             (1) Tensor of gate has shape (d, ..., d) where d is the qudit
-                dimension and there are d^num_qudits entries in the tuple.
+                dimension and there are 2 * num_qudits entries in the tuple.
             (2) Tensor has 2n free edges where n = number of qudits.
             (3) All tensor edges are free edges.
         """
         d = self._qudit_dimension
-        if not self._node.tensor.shape == tuple([d] * d ** self.num_qudits):
+        if not self._node.tensor.shape == tuple([d] * 2 * self.num_qudits):
             return False
         if not len(self._node.get_all_edges()) == 2 * self.num_qudits:
             return False
@@ -219,10 +249,10 @@ class MPS:
         Raises:
             TypeError: Wavefunction is not a numpy.ndarray or cannot be
                 converted to one.
-            ValueError:
-                * Wavefunction is not one-dimensional (a vector).
+            ValueError: If:
+                * The wavefunction is not one-dimensional (a vector).
                 * If the number of elements in the wavefunction is not
-                  equal to qudit_dimension ** num_qudits.
+                  equal to qudit_dimension ** nqudits.
                 * nqudits is less than two.
         """
         if not isinstance(wavefunction, (list, tuple, np.ndarray)):
@@ -947,11 +977,11 @@ class MPS:
 
         if mps_operation.is_single_qudit_operation():
             self.apply_one_qubit_gate(
-                mps_operation.node, *mps_operation.qudit_indices
+                mps_operation.node(), *mps_operation.qudit_indices
             )
         elif mps_operation.is_two_qudit_operation():
             self.apply_two_qubit_gate(
-                mps_operation.node, *mps_operation.qudit_indices, **kwargs
+                mps_operation.node(), *mps_operation.qudit_indices, **kwargs
             )
         else:
             raise ValueError(

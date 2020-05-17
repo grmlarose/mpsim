@@ -23,7 +23,7 @@ from mpsim.gates import (
 def test_single_qubit_identity_mps_operation():
     """Unit tests for a single-qubit identity MPS Operation."""
     node = igate()
-    mps_operation = MPSOperation(node, qudit_indices=(0,), qudit_dimension=2)
+    mps_operation = MPSOperation(node, qudit_indices=0, qudit_dimension=2)
     assert mps_operation.qudit_indices == (0,)
     assert mps_operation.qudit_dimension == 2
     assert mps_operation.is_valid()
@@ -38,7 +38,7 @@ def test_get_node_and_tensor_one_qubit_mps_operation():
     tensor = np.random.randn(2, 2)
     node = tn.Node(tensor)
     mps_operation = MPSOperation(node, qudit_indices=(0,), qudit_dimension=2)
-    copy_node = mps_operation.node
+    copy_node = mps_operation.node(copy=True)
     # TODO: How to check Node equality with tensornetwork?
     assert len(node.edges) == len(copy_node.edges)
     # assert node == copy_node
