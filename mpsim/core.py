@@ -606,7 +606,7 @@ class MPS:
         if abs(indexA - indexB) != 1:
             invert_swap_network = True
             original_indexA = indexA
-            self.move_node_from_left_to_right(indexA, indexB - 1)
+            self.move_node_from_left_to_right(indexA, indexB - 1, **kwargs)
             indexA = indexB - 1
 
         # Connect the MPS tensors to the gate edges
@@ -724,7 +724,7 @@ class MPS:
 
         # Invert the Swap network, if necessary
         if invert_swap_network:
-            self.move_node_from_right_to_left(indexA, original_indexA)
+            self.move_node_from_right_to_left(indexA, original_indexA, **kwargs)
 
         # TODO: Remove. This is only for convenience in benchmarking.
         self._fidelities.append(self.norm())

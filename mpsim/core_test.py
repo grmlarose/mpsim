@@ -1016,7 +1016,7 @@ def test_renormalize_to_invalid_norms_raises_errors():
         mps.renormalize(to_norm=-3.14)
 
     with pytest.raises(ValueError):
-        mps.renormalize(to_norm=1e-10)
+        mps.renormalize(to_norm=1e-20)
 
 
 def test_apply_one_qubit_mps_operation_xgate():
@@ -1301,3 +1301,34 @@ def test_renormalize_after_non_unitary():
                 renormalize_after_non_unitary=True
             )
             assert np.isclose(mps.norm(), 1.)
+
+
+@pytest.mark.parametrize("chi", [16, 32, 64, 128])
+def test_max_bond_dimension_not_surpassed(chi: int):
+    """Applies operations with a max chi value and ensures the bond dimensions
+    of the tensors never gets bigger than chi.
+    """
+    nqubits = 10
+    depth = 10
+    mps = MPS(nqudits=nqubits, qudit_dimension=2)
+
+    singles = (hgate(), xgate(), zgate())
+    czgate = cphase(exp=0.5)
+
+    # Apply operations
+    for _ in range(depth):
+        for i in range(nqubits):
+            gate = np.random.choice(singles)
+            op = MPSOperation(gate, (i,))
+            mps.apply_mps_operation(op)
+
+        for i in range(nqubits):
+            other_qubits = list(set(range(nqubits)) - {i})
+            j = np.random.choice(other_qubits)
+            i, j = min(i, j), max(i, j)  # TODO: Rmv after asymmetric bug fixed
+            op = MPSOperation(czgate, (i, j))
+            mps.apply_mps_operation(op, maxsvals=chi)
+
+        print(mps.get_bond_dimensions())
+        assert all(bond_dimension <= chi
+                   for bond_dimension in mps.get_bond_dimensions())
