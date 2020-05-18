@@ -1,11 +1,9 @@
 """Defines MPSIM Simulator for Cirq circuits."""
 
-from typing import Any, List, Sequence, Union
+from typing import Any, List, Union
 
 from cirq import Circuit, ops, protocols, study
-from cirq.sim import (
-    SimulatesAmplitudes, SimulatesFinalState, SimulationTrialResult
-)
+from cirq.sim import SimulatesFinalState
 
 from mpsim import MPS
 from mpsim.mpsim_cirq.circuits import (
@@ -30,15 +28,6 @@ class MPSimulator(SimulatesFinalState):
                                     for the given tensor.
         """
         self._options = options
-
-    # def compute_amplitudes_sweep(
-    #     self,
-    #     program: Union[Circuit, MPSimCircuit],
-    #     bitstrings: Sequence[str],
-    #     params: study.Sweepable,
-    #     qubit_order: ops.QubitOrderOrList = ops.QubitOrder.DEFAULT
-    # ) -> Sequence[Sequence[complex]]:
-    #     raise NotImplementedError()
 
     def simulate_sweep(
             self,
@@ -68,8 +57,8 @@ class MPSimulator(SimulatesFinalState):
         """
         if not isinstance(program, (Circuit, MPSimCircuit)):
             raise ValueError(
-                f"Program is of type {type(program)} but should be either"
-                " a cirq.Circuit or mpsim.mpsim_cirq.MPSimCircuit."
+                f"Program is of type {type(program)} but should be either "
+                "a cirq.Circuit or mpsim.mpsim_cirq.MPSimCircuit."
             )
 
         param_resolvers = study.to_resolvers(params)

@@ -46,8 +46,6 @@ def mps_operation_from_gate_operation(
 MPSOperation.from_gate_operation = mps_operation_from_gate_operation
 
 
-# TODO: Is this class necessary? The main functionality needed is to convert
-#  the circuit into a list of operations that the MPS object can implement.
 class MPSimCircuit(cirq.Circuit):
     """Defines MPS Circuits which extend cirq.Circuits and can be simulated by
     an MPS Simulator.
@@ -65,7 +63,6 @@ class MPSimCircuit(cirq.Circuit):
             device: Device the circuit runs on.
             qubit_order: Ordering of qubits.
         """
-        # TODO: Check that device is one-dimensional, as required for MPS.
         super().__init__(cirq_circuit, device=device)
         self._qudit_to_index_map = {
             qubit: i for i, qubit in enumerate(sorted(self.all_qubits()))
@@ -82,8 +79,6 @@ class MPSimCircuit(cirq.Circuit):
         mpsim_circuit.device = self.device
         return mpsim_circuit
 
-    # TODO: Should this keep the same moment/operation circuit structure?
-    #  Or should it just be one-dimensional?
     def _translate_to_mps_operations(self) -> List[MPSOperation]:
         """Appends all operations in a circuit to MPS Operations."""
         all_mps_operations = []
@@ -96,14 +91,3 @@ class MPSimCircuit(cirq.Circuit):
                     )
                 )
         return all_mps_operations
-
-    # TODO: Every time a gate is added to the circuit, also add it to
-    #  self._mpsim_operations. E.g.,
-    #  mpsim_circuit.append([some new gates])
-    #    or
-    #  mpsim_circuit.insert([some gates at some location])
-    #  Should update mpsim_circuit._mpsim_operations
-    #  Otherwise, a new MPSimCircuit will need to be created before every
-    #  circuit simulation.
-    #  In which case it would just be better to let the MPS Simulator
-    #  handle the conversion.
