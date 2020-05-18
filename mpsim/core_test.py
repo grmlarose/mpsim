@@ -388,7 +388,7 @@ def test_apply_oneq_gate_to_all():
     NOT gate to all qubits in a two-qubit MPS.
     """
     mps = MPS(nqudits=2)
-    mps.apply_one_qubit_gate_to_all(xgate())
+    mps.apply_one_qudit_gate_to_all(xgate())
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction(), correct)
 
@@ -399,7 +399,7 @@ def test_apply_oneq_gate_to_all_hadamard():
     """
     n = 5
     mps = MPS(nqudits=n)
-    mps.apply_one_qubit_gate_to_all(hgate())
+    mps.apply_one_qudit_gate_to_all(hgate())
     correct = 1 / 2 ** (n / 2) * np.ones(2 ** n)
     assert np.allclose(mps.wavefunction(), correct)
 
@@ -412,27 +412,27 @@ def test_apply_twoq_cnot_two_qubits():
     # Check that CNOT|10> = |11>
     mps = MPS(nqudits=2)
     mps.x(0)
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|00> = |00>
     mps = MPS(nqudits=2)
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|01> = |01>
     mps = MPS(nqudits=2)
     mps.x(1)
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|11> = |10>
     mps = MPS(nqudits=2)
     mps.x(-1)  # Applies to all qubits in the MPS
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([0.0, 0.0, 1.0, 0.0], dtype=np.complex64)
     assert np.allclose(mps.wavefunction(), correct)
 
@@ -479,7 +479,7 @@ def test_apply_twoq_identical_indices_raises_error():
     mps9q = MPS(nqudits=9)
     with pytest.raises(ValueError):
         for mps in (mps2q, mps3q, mps9q):
-            mps.apply_two_qubit_gate(cnot(), 0, 0)
+            mps.apply_two_qudit_gate(cnot(), 0, 0)
             mps.cnot(1, 1)
 
 
@@ -953,7 +953,7 @@ def test_keep_half_bond_dimension_singular_values():
     
     # Apply a two qubit gate explicitly keeping all singular values
     mps.r(-1)
-    mps.apply_two_qubit_gate(
+    mps.apply_two_qudit_gate(
         cnot(), 0, 1, fraction=1,
     )
     assert mps.bond_dimensions() == [2, 1, 1]
@@ -965,7 +965,7 @@ def test_keep_half_bond_dimension_singular_values():
     
     # Apply a two qubit gate keeping half the singular values
     mps.r(-1)
-    mps.apply_two_qubit_gate(
+    mps.apply_two_qudit_gate(
         cnot(), 0, 1, fraction=0.5
     )
     assert mps.bond_dimensions() == [1, 1, 1]
@@ -1250,7 +1250,7 @@ def test_apply_qft_nonlocal_gates():
         for i in range(n - 1, -1, -1):
             mps.h(i)
             for j in range(i - 1, -1, -1):
-                mps.apply_two_qubit_gate(cphase(2**(j - i)), j, i)
+                mps.apply_two_qudit_gate(cphase(2 ** (j - i)), j, i)
         correct = np.ones(shape=(2**n,))
         correct /= 2**(n / 2)
         assert np.allclose(mps.wavefunction(), correct)

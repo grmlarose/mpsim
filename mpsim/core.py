@@ -227,7 +227,7 @@ class MPS:
             self._max_bond_dimensions.remove(
                 self._qudit_dimension ** (self._nqudits // 2)
             )
-        self._fidelities = []  # type: List[float]
+        self._norms = []  # type: List[float]
 
     @staticmethod
     def from_wavefunction(
@@ -589,10 +589,15 @@ class MPS:
                 the single qubit gate to.
 
         Keyword Args:
-            ortho_after_non_unitary: If True, orthonormalizes edge(s) of the
-                node after applying a non-unitary gate.
-            renormalize_after_non_unitary: If True, renormalize the MPS after
-                applying a non-unitary gate.
+            ortho_after_non_unitary (bool): If True, orthonormalizes edge(s)
+                of the node after applying a non-unitary gate.
+            renormalize_after_non_unitary (bool): If True, renormalize the MPS
+                after applying a non-unitary gate.
+
+        Notes:
+            Edge convention.
+                Gate edge 1: Connects to MPS node.
+                Gate edge 0: Becomes free edge of new MPS node.
 
         Raises:
             ValueError:
@@ -605,15 +610,18 @@ class MPS:
         if node_index not in range(self._nqudits):
             raise ValueError(
                 f"Input tensor index={node_index} is out of bounds for"
-                f" an MPS on {self._nqudits} qubits."
+                f" an MPS on {self._nqudits} qudits."
             )
 
         if (len(gate.get_all_dangling()) != 2
                 or len(gate.get_all_nondangling()) != 0):
             raise ValueError(
-                "Single qubit gate must have two free edges"
+                "Single qudit gate must have two free edges"
                 " and zero connected edges."
             )
+
+        if gate.get_edge(0).dimension != gate.get_edge(1).dimension:
+            raise ValueError("Gate edge dimensions must be equal.")
 
         if gate.get_edge(0).dimension != self._qudit_dimension:
             raise ValueError(
@@ -643,7 +651,6 @@ class MPS:
         self._nodes[node_index] = new
 
         # Optional orthonormalization after a non-unitary gate
-        # TODO: Allow for setting a different threshold in ortho funcs here.
         if not is_unitary(gate) and ortho_after_non_unitary:
             # Edge case: Left-most node
             if node_index == 0:
@@ -756,14 +763,227 @@ class MPS:
         new_left.name = self._nodes[node_index - 1].name
         self._nodes[node_index - 1] = new_left
 
-    def apply_one_qubit_gate_to_all(self, gate: tn.Node) -> None:
-        """Applies a single qubit gate to all tensors in the MPS.
+    def apply_one_qudit_gate_to_all(self, gate: tn.Node) -> None:
+        """Applies a single qudit gate to all tensors in the MPS.
 
         Args:
-            gate: Single qubit gate to apply. A tensor with two free indices.
+            gate: Single qudit gate to apply. A tensor with two free indices.
         """
         for i in range(self._nqudits):
             self.apply_one_qudit_gate(gate, i)
+
+    def apply_two_qudit_gate(
+        self, gate: tn.Node, node_index1: int, node_index2: int, **kwargs
+    ) -> None:
+        """Applies a two qubit gate to the specified nodes.
+
+        Args:
+            gate: Two qubit gate to apply. See Notes for the edge convention.
+            node_index1: Index of first node in the MPS the gate acts on.
+            node_index2: Index of second node in the MPS the gate acs on.
+
+        Keyword Arguments:
+            keep_left_canonical: After performing an SVD on the new node to
+                obtain U, S, and Vdag, S is grouped with Vdag to form the
+                new right tensor. That is, the left tensor is U, and the
+                right tensor is S @ Vdag. This keeps the MPS in left canonical
+                form if it already was in left canonical form.
+
+                If False, S is grouped with U so that the new left tensor
+                 is U @ S and the new right tensor is Vdag.
+
+            maxsvals (int): Number of singular values to keep
+                for all two-qubit gates.
+
+            fraction (float): Number of singular values to keep expressed as a
+                fraction of the maximum bond dimension.
+                Must be between 0 and 1, inclusive.
+
+        Notes:
+            The following gate edge convention is used to connect gate edges to
+            MPS edges. Let `matrix` be a 4x4 (unitary) matrix. Then,
+
+            >>> matrix = np.reshape(matrix, newshape=(2, 2, 2, 2))
+            >>> gate = tn.Node(matrix)
+
+            ensures the edge convention below is satisfied.
+
+            Gate edge convention (assuming indexA < indexB)
+                gate edge 2: Connects to tensor at indexA.
+                gate edge 3: Connects to tensor at indexB.
+                gate edge 0: Becomes free index of new tensor at indexA.
+                gate edge 1: Becomes free index of new tensor at indexB.
+
+            If indexA > indexB, 0 <--> 1 and 2 <--> 3.
+
+        Raises:
+            ValueError: On the following:
+                * Invalid MPS.
+                * Invalid indices (equal or out of bounds).
+                * Invalid two-qudit gate.
+        """
+        if not self.is_valid():
+            raise ValueError("MPS is not valid.")
+
+        if (node_index1 not in range(self._nqudits)
+                or node_index2 not in range(self.nqudits)):
+            raise ValueError(
+                f"Input tensor indices={(node_index1, node_index2)} are out of "
+                f"bounds for an MPS on {self._nqudits} qudits."
+            )
+
+        if node_index1 == node_index2:
+            raise ValueError("Node indices cannot be identical.")
+
+        if (len(gate.get_all_dangling()) != 4
+                or len(gate.get_all_nondangling()) != 0):
+            raise ValueError(
+                "Two qubit gate must have four free edges"
+                " and zero connected edges."
+            )
+
+        edge_dimensions = set([edge.dimension for edge in gate.edges])
+        if len(edge_dimensions) != 1:
+            raise ValueError("All gate edges must have the same dimension.")
+
+        if edge_dimensions.pop() != self._qudit_dimension:
+            raise ValueError(
+                f"Gate edges have dimension {gate.get_edge(0).dimension} "
+                f"but should have MPS qudit dimension = {self._qudit_dimension}"
+            )
+
+        # Flip the "control"/"target" gate edges and tensor edges if needed
+        if node_index2 < node_index1:
+            gate.reorder_edges([gate[1], gate[0], gate[3], gate[2]])
+            node_index1, node_index2 = node_index2, node_index1
+
+        # Swap tensors until adjacent if necessary
+        invert_swap_network = False
+        if node_index1 < node_index2 - 1:
+            invert_swap_network = True
+            original_index1 = node_index1
+            self.move_node_from_left_to_right(
+                node_index1, node_index2 - 1, **kwargs
+            )
+            node_index1 = node_index2 - 1
+
+        # Connect the MPS tensors to the gate edges
+        _ = tn.connect(
+            self.get_free_edge_of(node_index=node_index1, copy=False),
+            gate.get_edge(2)
+        )
+        _ = tn.connect(
+            self.get_free_edge_of(node_index=node_index2, copy=False),
+            gate.get_edge(3)
+        )
+
+        # Store the free edges of the gate
+        left_gate_edge = gate.get_edge(0)
+        right_gate_edge = gate.get_edge(1)
+
+        # Contract the tensors in the MPS
+        new_node = tn.contract_between(
+            self._nodes[node_index1], self._nodes[node_index2]
+        )
+
+        # Flatten the two edges from the MPS node to the gate node
+        node_gate_edge = tn.flatten_edges_between(new_node, gate)
+
+        # Contract the flattened edge to get a new single MPS node
+        new_node = tn.contract(node_gate_edge)
+
+        # Get the left and right connected edges (if any)
+        left_connected_edge = None
+        right_connected_edge = None
+        for connected_edge in new_node.get_all_nondangling():
+            if self._prefix in connected_edge.node1.name:
+                # Use the "node1" node by default
+                index = int(connected_edge.node1.name.split(self._prefix)[-1])
+            else:
+                # If "node1" is the new_mps_node, use "node2"
+                index = int(connected_edge.node2.name.split(self._prefix)[-1])
+
+            # Get the connected edges (if any)
+            if index <= node_index1:
+                left_connected_edge = connected_edge
+            else:
+                right_connected_edge = connected_edge
+
+        # ================================================
+        # Do the SVD to split the single MPS node into two
+        # ================================================
+        # Get the left and right free edges from the original gate
+        left_free_edge = left_gate_edge
+        right_free_edge = right_gate_edge
+
+        # Group the left (un)connected and right (un)connected edges
+        left_edges = [
+            edge for edge in (left_free_edge, left_connected_edge)
+            if edge is not None
+        ]
+        right_edges = [
+            edge for edge in (right_free_edge, right_connected_edge)
+            if edge is not None
+        ]
+
+        # Options for canonicalization + truncation
+        if "keep_left_canonical" in kwargs.keys():
+            keep_left_canonical = kwargs.get("keep_left_canonical")
+        else:
+            keep_left_canonical = True
+
+        if "fraction" in kwargs.keys() and "maxsvals" in kwargs.keys():
+            raise ValueError(
+                "Only one of (fraction, maxsvals) can be provided as kwargs."
+            )
+
+        if "fraction" in kwargs.keys():
+            fraction = kwargs.get("fraction")
+            if not (0 <= fraction <= 1):
+                raise ValueError(
+                    "Keyword fraction must be between 0 and 1 but is", fraction
+                )
+            maxsvals = int(
+                round(fraction * self.max_bond_dimension_of(
+                    min(node_index1, node_index2)
+                ))
+            )
+        else:
+            maxsvals = None  # Keeps all singular values
+
+        if "maxsvals" in kwargs.keys():
+            maxsvals = int(kwargs.get("maxsvals"))
+
+        u, s, vdag, truncated_svals = tn.split_node_full_svd(
+            new_node,
+            left_edges=left_edges,
+            right_edges=right_edges,
+            max_singular_values=maxsvals,
+        )
+
+        # Contract the tensors to keep left or right canonical form
+        if keep_left_canonical:
+            new_left = u
+            new_right = tn.contract_between(s, vdag)
+        else:
+            new_left = tn.contract_between(u, s)
+            new_right = vdag
+
+        # Put the new tensors after applying the gate back into the MPS list
+        new_left.name = self._nodes[node_index1].name
+        new_right.name = self._nodes[node_index2].name
+
+        self._nodes[node_index1] = new_left
+        self._nodes[node_index2] = new_right
+
+        # Invert the Swap network, if necessary
+        if invert_swap_network:
+            self.move_node_from_right_to_left(
+                node_index1, original_index1, **kwargs
+            )
+
+        # TODO: Remove. This is only for convenience in benchmarking.
+        self._norms.append(self.norm())
 
     def move_node_from_left_to_right(
             self, current_node_index: int, final_node_index: int, **kwargs
@@ -821,204 +1041,6 @@ class MPS:
             self.swap(current_node_index - 1, current_node_index, **kwargs)
             current_node_index -= 1
 
-    def apply_two_qubit_gate(
-        self, gate: tn.Node, indexA: int, indexB: int, **kwargs
-    ) -> None:
-        """Applies a two qubit gate to the specified nodes.
-
-        Args:
-            gate: Two qubit gate to apply. See Notes for the edge convention.
-            indexA: Index of first tensor (qubit) in the mpslist to apply the
-                     single qubit gate to.
-            indexB: Index of second tensor (qubit) in the mpslist to apply the
-                     single qubit gate to.
-
-        Keyword Arguments:
-            keep_left_canonical: After performing an SVD on the new node to
-                obtain U, S, Vdag, S is grouped with Vdag to form the
-                new right tensor. That is, the left tensor is U, and the
-                right tensor is S @ Vdag. This keeps the MPS in left canonical
-                form if it already was in left canonical form.
-
-                If False, S is grouped with U so that the new left tensor
-                 is U @ S and the new right tensor is Vdag.
-
-            maxsvals (int): Number of singular values to keep
-                for all two-qubit gates.
-
-            fraction (float): Number of singular values to keep expressed as a
-                fraction of the maximum bond dimension.
-                Must be between 0 and 1, inclusive.
-
-        Notes:
-            The following gate edge convention is used to connect gate edges to
-            MPS edges. Let `matrix` be a 4x4 (unitary) matrix. Then,
-
-            >>> matrix = np.reshape(matrix, newshape=(2, 2, 2, 2))
-            >>> gate = tn.Node(matrix)
-
-            ensures the edge convention below is upheld.
-
-            Gate edge convention (assuming indexA < indexB)
-                gate edge 2: Connects to tensor at indexA.
-                gate edge 3: Connects to tensor at indexB.
-                gate edge 0: Becomes free index of new tensor at indexA.
-                gate edge 1: Becomes free index of new tensor at indexB.
-
-            If indexA > indexB, 0 <--> 1 and 2 <--> 3.
-        """
-        if not self.is_valid():
-            raise ValueError("MPS is not valid.")
-
-        if (indexA not in range(self._nqudits)
-                or indexB not in range(self.nqudits)):
-            raise ValueError(
-                f"Input tensor indices={(indexA, indexB)} are out of bounds"
-                f" for an MPS on {self._nqudits} qubits."
-            )
-
-        if indexA == indexB:
-            raise ValueError("Input indices cannot be identical.")
-
-        if (len(gate.get_all_dangling()) != 4
-                or len(gate.get_all_nondangling()) != 0):
-            raise ValueError(
-                "Two qubit gate must have four free edges"
-                " and zero connected edges."
-            )
-
-        # Flip the "control"/"target" gate edges and tensor edges if needed
-        if indexB < indexA:
-            gate.reorder_edges([gate[1], gate[0], gate[3], gate[2]])
-            indexA, indexB = indexB, indexA
-
-        # Swap tensors until adjacent if necessary
-        invert_swap_network = False
-        if indexA < indexB - 1:
-            invert_swap_network = True
-            original_indexA = indexA
-            self.move_node_from_left_to_right(indexA, indexB - 1, **kwargs)
-            indexA = indexB - 1
-
-        # Connect the MPS tensors to the gate edges
-        left_index = indexA
-        right_index = indexB
-
-        _ = tn.connect(
-            self.get_free_edge_of(node_index=indexA, copy=False),
-            gate.get_edge(2)
-        )
-        _ = tn.connect(
-            self.get_free_edge_of(node_index=indexB, copy=False),
-            gate.get_edge(3)
-        )
-
-        # Store the free edges of the gate
-        left_gate_edge = gate.get_edge(0)
-        right_gate_edge = gate.get_edge(1)
-
-        # Contract the tensors in the MPS
-        new_node = tn.contract_between(
-            self._nodes[indexA], self._nodes[indexB], name="new_mps_tensor"
-        )
-
-        # Flatten the two edges from the MPS node to the gate node
-        node_gate_edge = tn.flatten_edges_between(new_node, gate)
-
-        # Contract the flattened edge to get a new single MPS node
-        new_node = tn.contract(node_gate_edge, name="new_mps_tensor")
-
-        # Get the left and right connected edges (if any)
-        left_connected_edge = None
-        right_connected_edge = None
-        for connected_edge in new_node.get_all_nondangling():
-            if self._prefix in connected_edge.node1.name:
-                # Use the "node1" node by default
-                index = int(connected_edge.node1.name.split(self._prefix)[-1])
-            else:
-                # If "node1" is the new_mps_node, use "node2"
-                index = int(connected_edge.node2.name.split(self._prefix)[-1])
-
-            # Get the connected edges (if any)
-            if index <= left_index:
-                left_connected_edge = connected_edge
-            else:
-                right_connected_edge = connected_edge
-
-        # Get the left and right free edges from the original gate
-        left_free_edge = left_gate_edge
-        right_free_edge = right_gate_edge
-
-        # Group the left (un)connected and right (un)connected edges
-        left_edges = [
-            edge for edge in (left_free_edge, left_connected_edge)
-            if edge is not None
-        ]
-        right_edges = [
-            edge for edge in (right_free_edge, right_connected_edge)
-            if edge is not None
-        ]
-
-        # ================================================
-        # Do the SVD to split the single MPS node into two
-        # ================================================
-        # Options for canonicalization + truncation
-        if "keep_left_canonical" in kwargs.keys():
-            keep_left_canonical = kwargs.get("keep_left_canonical")
-        else:
-            keep_left_canonical = True
-
-        if "fraction" in kwargs.keys() and "maxsvals" in kwargs.keys():
-            raise ValueError(
-                "Only one of (fraction, maxsvals) can be provided as kwargs."
-            )
-
-        if "fraction" in kwargs.keys():
-            fraction = kwargs.get("fraction")
-            if not (0 <= fraction <= 1):
-                raise ValueError(
-                    "Keyword fraction must be between 0 and 1 but is", fraction
-                )
-            maxsvals = int(
-                round(fraction * self.max_bond_dimension_of(
-                    min(indexA, indexB)
-                ))
-            )
-        else:
-            maxsvals = None  # Keeps all singular values
-
-        if "maxsvals" in kwargs.keys():
-            maxsvals = int(kwargs.get("maxsvals"))
-
-        u, s, vdag, truncated_svals = tn.split_node_full_svd(
-            new_node,
-            left_edges=left_edges,
-            right_edges=right_edges,
-            max_singular_values=maxsvals,
-        )
-
-        # Contract the tensors to keep left or right canonical form
-        if keep_left_canonical:
-            new_left = u
-            new_right = tn.contract_between(s, vdag)
-        else:
-            new_left = tn.contract_between(u, s)
-            new_right = vdag
-
-        # Put the new tensors after applying the gate back into the MPS list
-        new_left.name = self._nodes[indexA].name
-        new_right.name = self._nodes[indexB].name
-
-        self._nodes[left_index] = new_left
-        self._nodes[right_index] = new_right
-
-        # Invert the Swap network, if necessary
-        if invert_swap_network:
-            self.move_node_from_right_to_left(indexA, original_indexA, **kwargs)
-
-        # TODO: Remove. This is only for convenience in benchmarking.
-        self._fidelities.append(self.norm())
-
     # TODO: Take single qudit gate application kwargs/options into account
     def apply_mps_operation(
             self, mps_operation: MPSOperation, **kwargs
@@ -1029,7 +1051,7 @@ class MPS:
             mps_operation: Valid MPS Operation to apply to the MPS.
 
         Keyword Args:
-            See MPS.apply_two_qubit_gate.
+            See MPS.apply_two_qudit_gate.
         """
         if not mps_operation.is_valid():
             raise ValueError("Input MPS Operation is not valid.")
@@ -1039,7 +1061,7 @@ class MPS:
                 mps_operation.node(), *mps_operation.qudit_indices
             )
         elif mps_operation.is_two_qudit_operation():
-            self.apply_two_qubit_gate(
+            self.apply_two_qudit_gate(
                 mps_operation.node(), *mps_operation.qudit_indices, **kwargs
             )
         else:
@@ -1056,7 +1078,7 @@ class MPS:
             mps_operations: List of valid MPS Operations to apply to the MPS.
 
         Keyword Args:
-            See MPS.apply_two_qubit_gate.
+            See MPS.apply_two_qudit_gate.
         """
         for mps_operation in mps_operations:
             self.apply_mps_operation(mps_operation, **kwargs)
@@ -1071,7 +1093,7 @@ class MPS:
             index: Index of qubit (tensor) to apply X gate to.
         """
         if index == -1:
-            self.apply_one_qubit_gate_to_all(xgate())
+            self.apply_one_qudit_gate_to_all(xgate())
         else:
             self.apply_one_qudit_gate(xgate(), index)
 
@@ -1084,7 +1106,7 @@ class MPS:
             index: Index of qubit (tensor) to apply X gate to.
         """
         if index == -1:
-            self.apply_one_qubit_gate_to_all(hgate())
+            self.apply_one_qudit_gate_to_all(hgate())
         else:
             self.apply_one_qudit_gate(hgate(), index)
 
@@ -1111,7 +1133,7 @@ class MPS:
         """Applies a CNOT gate with qubit indexed `a` as control
         and qubit indexed `b` as target.
         """
-        self.apply_two_qubit_gate(cnot(), a, b, **kwargs)
+        self.apply_two_qudit_gate(cnot(), a, b, **kwargs)
 
     def sweep_cnots_left_to_right(self, **kwargs) -> None:
         """Applies a layer of CNOTs between adjacent qubits
@@ -1131,7 +1153,7 @@ class MPS:
         """Applies a SWAP gate between qubits indexed `a` and `b`."""
         if b < a:
             a, b = b, a
-        self.apply_two_qubit_gate(swap(), a, b, **kwargs)
+        self.apply_two_qudit_gate(swap(), a, b, **kwargs)
 
     def __str__(self):
         return "----".join(str(tensor) for tensor in self._nodes)
