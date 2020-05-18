@@ -1,5 +1,6 @@
 """Unit tests for inital MPS states."""
 
+from copy import copy
 import pytest
 
 import numpy as np
@@ -1493,3 +1494,48 @@ def test_max_bond_dimension_not_surpassed(chi: int):
 
         assert all(bond_dimension <= chi
                    for bond_dimension in mps.bond_dimensions())
+
+
+def test_equal():
+    """Tests checking equality of MPS."""
+    for n in (2, 3, 5, 10):
+        for d in (2, 3, 5, 10):
+            mps1 = MPS(nqudits=n, qudit_dimension=d)
+            mps2 = MPS(nqudits=n, qudit_dimension=d)
+            assert mps1 == mps1
+            assert mps2 == mps2
+            assert mps1 == mps2
+
+            if d == 2:
+                mps1.apply(MPSOperation(xgate(), 0))
+                assert mps1 != mps2
+
+                mps2.apply(MPSOperation(xgate(), 0))
+                assert mps1 == mps2
+
+
+def test_equal_different_prefixes():
+    """Tests identical MPS with different tensor names are still equal."""
+    mps1 = MPS(nqudits=10, qudit_dimension=2, tensor_prefix="mps1_")
+    mps2 = MPS(nqudits=10, qudit_dimension=2, tensor_prefix="mps2_")
+    assert mps1 == mps2
+
+
+def test_copy():
+    """Tests copying an MPS by calling copy(MPS)."""
+    for n in (2, 3, 5, 10):
+        for d in (2, 3, 5, 10):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            mps_copy = copy(mps)
+            assert mps_copy is not mps
+            assert mps_copy == mps
+
+
+def test_copy_method():
+    """Tests copying an MPS by calling MPS.copy()."""
+    for n in (2, 3, 5, 10):
+        for d in (2, 3, 5, 10):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            mps_copy = mps.copy()
+            assert mps_copy is not mps
+            assert mps_copy == mps

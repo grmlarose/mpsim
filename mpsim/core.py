@@ -1172,5 +1172,45 @@ class MPS:
             a, b = b, a
         self.apply_two_qudit_gate(swap(), a, b, **kwargs)
 
+    def copy(self) -> 'MPS':
+        """Returns a copy of the MPS."""
+        return self.__copy__()
+
     def __str__(self):
         return "----".join(str(tensor) for tensor in self._nodes)
+
+    def __eq__(self, other: 'MPS'):
+        if not isinstance(other, MPS):
+            return False
+        if self is other:
+            return True
+        if not self.is_valid():
+            raise ValueError(
+                "MPS is invalid and cannot be compared to another MPS."
+            )
+        if not other.is_valid():
+            raise ValueError(
+                "Other MPS is invalid."
+            )
+        if (other._qudit_dimension != self._qudit_dimension or
+                other._nqudits != self._nqudits):
+            return False
+        for i in range(self._nqudits):
+            if not np.allclose(
+                    self.get_node(i).tensor, other.get_node(i).tensor
+            ):
+                return False
+            if i > 0:
+                if (self.get_left_connected_edge_of(i).dimension !=
+                        other.get_left_connected_edge_of(i).dimension):
+                    return False
+            if i < self._nqudits - 1:
+                if (self.get_right_connected_edge_of(i).dimension !=
+                        other.get_right_connected_edge_of(i).dimension):
+                    return False
+        return True
+
+    def __copy__(self):
+        new = MPS(self._nqudits, self._qudit_dimension, self._prefix)
+        new._nodes = self.get_nodes(copy=True)
+        return new
