@@ -575,33 +575,36 @@ class MPS:
                 (to_norm / norm)**(1 / self.nqudits) * node.tensor
             )
 
-    def apply_one_qubit_gate(
-            self,
-            gate: tn.Node,
-            index: int,
-            ortho_after_non_unitary: bool = True,
-            renormalize_after_non_unitary: bool = True,
+    def apply_one_qudit_gate(
+        self,
+        gate: tn.Node,
+        node_index: int,
+        **kwargs
     ) -> None:
         """Applies a single qubit gate to a specified node.
 
         Args:
             gate: Single qubit gate to apply. A tensor with two free indices.
-            index: Index of tensor (qubit) in the MPS to apply
+            node_index: Index of tensor (qubit) in the MPS to apply
                 the single qubit gate to.
+
+        Keyword Args:
             ortho_after_non_unitary: If True, orthonormalizes edge(s) of the
                 node after applying a non-unitary gate.
             renormalize_after_non_unitary: If True, renormalize the MPS after
                 applying a non-unitary gate.
 
         Raises:
-            ValueError: On invalid MPS, invalid index, or invalid gate.
+            ValueError:
+                On invalid MPS, invalid index, invalid gate, and edge dimension
+                mismatch between gate edges and MPS qudit edges.
         """
         if not self.is_valid():
             raise ValueError("MPS is invalid.")
 
-        if index not in range(self._nqudits):
+        if node_index not in range(self._nqudits):
             raise ValueError(
-                f"Input tensor index={index} is out of bounds for"
+                f"Input tensor index={node_index} is out of bounds for"
                 f" an MPS on {self._nqudits} qubits."
             )
 
@@ -612,37 +615,48 @@ class MPS:
                 " and zero connected edges."
             )
 
-        # TODO: Check that the edge dimension of the gate matches the MPS edge
-        #  dimension.
+        if gate.get_edge(0).dimension != self._qudit_dimension:
+            raise ValueError(
+                f"Gate edges have dimension {gate.get_edge(0).dimension} "
+                f"but should have MPS qudit dimension = {self._qudit_dimension}"
+            )
+
+        # Parse the keyword arguments
+        renormalize_after_non_unitary = True
+        ortho_after_non_unitary = True
+        if kwargs.get("renormalize_after_non_unitary") is False:
+            renormalize_after_non_unitary = False
+        if kwargs.get("ortho_after_non_unitary") is False:
+            ortho_after_non_unitary = False
 
         # Store the norm for optional renormalization after non-unitary gate
         if not is_unitary(gate) and renormalize_after_non_unitary:
             norm = self.norm()
 
         # Connect the MPS and gate edges
-        mps_edge = list(self._nodes[index].get_all_dangling())[0]
-        gate_edge = gate[1]  # TODO: Is this the correct edge to use (always)?
+        mps_edge = list(self._nodes[node_index].get_all_dangling())[0]
+        gate_edge = gate[1]
         connected = tn.connect(mps_edge, gate_edge)
 
         # Contract the edge to get the new tensor
-        new = tn.contract(connected, name=self._nodes[index].name)
-        self._nodes[index] = new
+        new = tn.contract(connected, name=self._nodes[node_index].name)
+        self._nodes[node_index] = new
 
         # Optional orthonormalization after a non-unitary gate
         # TODO: Allow for setting a different threshold in ortho funcs here.
         if not is_unitary(gate) and ortho_after_non_unitary:
             # Edge case: Left-most node
-            if index == 0:
-                self.orthonormalize_right_edge_of(index)
+            if node_index == 0:
+                self.orthonormalize_right_edge_of(node_index)
 
             # Edge case: Right-most node
-            elif index == self._nqudits - 1:
-                self.orthonormalize_left_edge_of(index)
+            elif node_index == self._nqudits - 1:
+                self.orthonormalize_left_edge_of(node_index)
 
             # General case
             else:
-                self.orthonormalize_right_edge_of(index)
-                self.orthonormalize_left_edge_of(index)
+                self.orthonormalize_right_edge_of(node_index)
+                self.orthonormalize_left_edge_of(node_index)
 
         # Optional renormalization after non-unitary gate
         if not is_unitary(gate) and renormalize_after_non_unitary:
@@ -749,7 +763,7 @@ class MPS:
             gate: Single qubit gate to apply. A tensor with two free indices.
         """
         for i in range(self._nqudits):
-            self.apply_one_qubit_gate(gate, i)
+            self.apply_one_qudit_gate(gate, i)
 
     def move_node_from_left_to_right(
             self, current_node_index: int, final_node_index: int, **kwargs
@@ -1021,7 +1035,7 @@ class MPS:
             raise ValueError("Input MPS Operation is not valid.")
 
         if mps_operation.is_single_qudit_operation():
-            self.apply_one_qubit_gate(
+            self.apply_one_qudit_gate(
                 mps_operation.node(), *mps_operation.qudit_indices
             )
         elif mps_operation.is_two_qudit_operation():
@@ -1059,7 +1073,7 @@ class MPS:
         if index == -1:
             self.apply_one_qubit_gate_to_all(xgate())
         else:
-            self.apply_one_qubit_gate(xgate(), index)
+            self.apply_one_qudit_gate(xgate(), index)
 
     def h(self, index: int) -> None:
         """Applies a Hadamard gate to a qubit specified by the index.
@@ -1072,7 +1086,7 @@ class MPS:
         if index == -1:
             self.apply_one_qubit_gate_to_all(hgate())
         else:
-            self.apply_one_qubit_gate(hgate(), index)
+            self.apply_one_qudit_gate(hgate(), index)
 
     def r(self, index, seed: Optional[int] = None,
           angle_scale: float = 1.0) -> None:
@@ -1086,11 +1100,11 @@ class MPS:
         """
         if index == -1:
             for i in range(self._nqudits):
-                self.apply_one_qubit_gate(
+                self.apply_one_qudit_gate(
                     rgate(seed, angle_scale), i,
                 )
         else:
-            self.apply_one_qubit_gate(rgate(seed, angle_scale), index)
+            self.apply_one_qudit_gate(rgate(seed, angle_scale), index)
 
     # TODO: Remove. This doesn't generalize to qudits.
     def cnot(self, a: int, b: int, **kwargs) -> None:
