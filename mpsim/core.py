@@ -486,10 +486,44 @@ class MPS:
             fin.tensor, newshape=(self._qudit_dimension ** self._nqudits)
         )
 
-    def norm(self) -> float:
-        """Returns the norm of the MPS computed by contraction."""
+    def inner_product(self, other: 'MPS') -> np.complex:
+        """Returns the inner product between self and other computed by
+        contraction. Mathematically, the inner product is <self|other>.
+
+        Args:
+            other: Other MPS to take inner product with. This MPS is the "ket"
+                in the inner product <self|other>.
+
+        Raises:
+            ValueError: If:
+                * Number of qudits don't match in both MPS.
+                * Qudit dimensions don't match in both MPS.
+                * Either MPS is invalid
+        """
+        if other._nqudits != self._nqudits:
+            raise ValueError(
+                f"Cannot compute inner product between self which has "
+                f"{self._nqudits} qudits and other which has {other._nqudits} "
+                f"qudits."
+                "\nNumber of qudits must be equal."
+            )
+
+        if other._qudit_dimension != self._qudit_dimension:
+            raise ValueError(
+                f"Cannot compute inner product between self which has qudit"
+                f"dimension {self._qudit_dimension} and other which as qudit"
+                f"dimension {other._qudit_dimension}."
+                "Qudit dimensions must be equal."
+            )
+
+        if not self.is_valid():
+            raise ValueError("MPS is invalid.")
+
+        if not other.is_valid():
+            raise ValueError("Other MPS is invalid.")
+
         a = self.get_nodes(copy=True)
-        b = self.get_nodes(copy=True)
+        b = other.get_nodes(copy=True)
         for n in b:
             n.set_tensor(np.conj(n.tensor))
 
@@ -506,20 +540,23 @@ class MPS:
 
         fin = tn.contract_between(a[-1], b[-1])
         assert len(fin.edges) == 0  # Debug check
-        assert np.isclose(np.imag(fin.tensor), 0.0)  # Debug check
-        return abs(fin.tensor)
+        return np.complex(fin.tensor)
+
+    def norm(self) -> float:
+        """Returns the norm of the MPS computed by contraction."""
+        return np.sqrt(self.inner_product(self).real)
 
     def renormalize(self, to_norm: float = 1.0) -> None:
         """Renormalizes the MPS.
 
         Args:
-            to_norm: The resulting MPS will have this norm.
+            to_norm: The new norm of the MPS.
 
         Raises:
             ValueError: If to_norm is negative or too close to zero, or if
-                        the current norm of the MPS is too close to zero.
+                the current norm of the MPS is too close to zero.
         """
-        if to_norm <= 0.:
+        if to_norm < 0.:
             raise ValueError(f"Arg to_norm must be positive but is {to_norm}")
 
         if np.isclose(to_norm, 0., atol=1e-15):
@@ -535,7 +572,7 @@ class MPS:
         norm = self.norm()
         for i, node in enumerate(self._nodes):
             self._nodes[i].set_tensor(
-                np.sqrt(to_norm / norm)**(1 / self.nqudits) * node.tensor
+                (to_norm / norm)**(1 / self.nqudits) * node.tensor
             )
 
     def apply_one_qubit_gate(

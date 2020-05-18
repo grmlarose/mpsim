@@ -969,7 +969,79 @@ def test_keep_half_bond_dimension_singular_values():
         cnot(), 0, 1, fraction=0.5
     )
     assert mps.bond_dimensions() == [1, 1, 1]
-    
+
+
+def test_inner_product_basis_states():
+    """Tests inner products of four two-qubit basis states."""
+    # Get the four MPS
+    mps00 = MPS(nqudits=2)
+    mps01 = MPS(nqudits=2)
+    mps01.apply_mps_operation(MPSOperation(xgate(), 1))
+    mps10 = MPS(nqudits=2)
+    mps10.apply_mps_operation(MPSOperation(xgate(), 0))
+    mps11 = MPS(nqudits=2)
+    mps11.apply_mps_operation(MPSOperation(xgate(), 0))
+    mps11.apply_mps_operation(MPSOperation(xgate(), 1))
+    allmps = (mps00, mps01, mps10, mps11)
+
+    # Test inner products
+    for i in range(4):
+        for j in range(4):
+            assert np.isclose(allmps[i].inner_product(allmps[j]), i == j)
+
+
+@pytest.mark.parametrize("n", [2, 3, 5, 8, 10])
+def test_inner_product_correctness_with_qubit_wavefunctions(n: int):
+    """Tests correctness of MPS.inner_product by computing the inner product
+    from the wavefunctions.
+    """
+    np.random.seed(1)
+
+    for _ in range(50):
+        # Get the wavefunctions
+        wavefunction1 = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+        wavefunction1 /= np.linalg.norm(wavefunction1)
+        wavefunction2 = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+        wavefunction2 /= np.linalg.norm(wavefunction2)
+
+        # Get the MPS from the wavefunctions
+        mps1 = MPS.from_wavefunction(
+            wavefunction1, nqudits=n, qudit_dimension=2
+        )
+        mps2 = MPS.from_wavefunction(
+            wavefunction2, nqudits=n, qudit_dimension=2
+        )
+
+        # Check correctness for the inner products
+        assert np.isclose(
+            mps1.inner_product(mps2),
+            np.inner(wavefunction1, wavefunction2.conj())
+        )
+        assert np.isclose(
+            mps2.inner_product(mps1),
+            np.inner(wavefunction2, wavefunction1.conj())
+        )
+
+
+def test_inner_product_raises_error_mismatch_nqudits():
+    """Tests that <self|other> raises an error when
+    self.nqudits != other.nqudits.
+    """
+    mps1 = MPS(nqudits=5)
+    mps2 = MPS(nqudits=6)
+    with pytest.raises(ValueError):
+        mps1.inner_product(mps2)
+
+
+def test_inner_product_raises_error_mismatch_qudit_dimension():
+    """Tests that <self|other> raises an error when
+    self.qudit_dimension != other.qudit_dimension.
+    """
+    mps1 = MPS(nqudits=5, qudit_dimension=2)
+    mps2 = MPS(nqudits=5, qudit_dimension=3)
+    with pytest.raises(ValueError):
+        mps1.inner_product(mps2)
+
     
 def test_norm_two_qubit_product_simple():
     """Tests norm of a two-qubit product state MPS."""
@@ -981,7 +1053,7 @@ def test_norm_two_qubit_product_simple():
 
 
 @pytest.mark.parametrize(["n"], 
-                          [[3], [4], [5], [6], [7], [8], [9], [10]]
+                         [[3], [4], [5], [6], [7], [8], [9], [10]]
                          )
 def test_norm_nqubit_product_state(n):
     """Tests n qubit MPS in the all |0> state have norm 1."""
@@ -1013,7 +1085,7 @@ def test_norm_decreases_after_two_qubit_gate_with_truncation():
     assert mps.norm() == 1
     mps.h(0)
     mps.cnot(0, 1, maxsvals=1)
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
 
 
 def test_norm_is_zero_after_throwing_away_all_singular_values():
@@ -1057,10 +1129,11 @@ def test_renormalize_after_throwing_away_singular_values_bell_state():
     )
     correct = np.array([1. / np.sqrt(2), 0., 0., 0.])
     assert np.allclose(mps.wavefunction(), correct)
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
 
     # Renormalize
     mps.renormalize()
+    print(mps.wavefunction())
     correct = np.array([1., 0., 0., 0.])
     assert np.allclose(mps.wavefunction(), correct)
     assert np.isclose(mps.norm(), 1.)
@@ -1077,12 +1150,12 @@ def test_renormalize_to_value_after_throwing_away_singular_values_bell_state():
     )
     correct = np.array([1. / np.sqrt(2), 0., 0., 0.])
     assert np.allclose(mps.wavefunction(), correct)
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
 
     # Renormalize to different values
     for norm in np.linspace(0.1, 2., 100):
         mps.renormalize(to_norm=norm)
-        correct = np.array([np.sqrt(norm), 0., 0., 0.])
+        correct = np.array([norm, 0., 0., 0.])
         assert np.allclose(mps.wavefunction(), correct)
         assert np.isclose(mps.norm(), norm)
 
