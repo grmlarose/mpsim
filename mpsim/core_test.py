@@ -5,8 +5,7 @@ import pytest
 import numpy as np
 import tensornetwork as tn
 
-from mpsim import MPS
-
+from mpsim import MPS, MPSOperation
 from mpsim.gates import (
     igate,
     xgate,
@@ -20,7 +19,51 @@ from mpsim.gates import (
     computational_basis_projector
 )
 
-from mpsim.mpsim_cirq.circuits import MPSOperation
+
+def test_single_qubit_identity_mps_operation():
+    """Unit tests for a single-qubit identity MPS Operation."""
+    node = igate()
+    mps_operation = MPSOperation(node, qudit_indices=0, qudit_dimension=2)
+    assert mps_operation.qudit_indices == (0,)
+    assert mps_operation.qudit_dimension == 2
+    assert mps_operation.is_valid()
+    assert mps_operation.is_unitary()
+    assert mps_operation.is_single_qudit_operation()
+    assert not mps_operation.is_two_qudit_operation()
+
+
+def test_get_node_and_tensor_one_qubit_mps_operation():
+    """Tests getting the node of a one-qubit MPS Operation."""
+    np.random.seed(1)
+    tensor = np.random.randn(2, 2)
+    node = tn.Node(tensor)
+    mps_operation = MPSOperation(node, qudit_indices=(0,), qudit_dimension=2)
+    copy_node = mps_operation.node(copy=True)
+    # TODO: How to check Node equality with tensornetwork?
+    assert len(node.edges) == len(copy_node.edges)
+    # assert node == copy_node
+    copy_tensor = mps_operation.tensor()
+    assert np.allclose(tensor, copy_tensor)
+
+
+def test_two_qubit_mps_operation_cnot():
+    """Performs simple checks on a two-qubit CNOT MPS Operation."""
+    node = cnot()
+    mps_operation = MPSOperation(node, qudit_indices=(0, 1), qudit_dimension=2)
+    assert mps_operation.qudit_indices == (0, 1)
+    assert mps_operation.qudit_dimension == 2
+    assert not mps_operation.is_single_qudit_operation()
+    assert mps_operation.is_two_qudit_operation()
+
+
+def test_two_qubit_mps_operation_nonlocal_cnot():
+    """Performs simple checks on a two-qubit non-local CNOT MPS Operation."""
+    node = cnot()
+    mps_operation = MPSOperation(node, qudit_indices=(0, 2), qudit_dimension=2)
+    assert mps_operation.qudit_indices == (0, 2)
+    assert mps_operation.is_valid()
+    assert not mps_operation.is_single_qudit_operation()
+    assert mps_operation.is_two_qudit_operation()
 
 
 def test_mps_one_qudit():
@@ -65,11 +108,11 @@ def test_max_bond_dimensions_odd_nqudits():
     d = 4
     mps = MPS(nqudits=5, qudit_dimension=d)
     assert mps._max_bond_dimensions == [4, 16, 16, 4]
-    assert mps.wavefunction.shape == (d**5,)
+    assert mps.wavefunction().shape == (d**5,)
 
     mps = MPS(nqudits=7, qudit_dimension=d)
     assert mps._max_bond_dimensions == [4, 16, 64, 64, 16, 4]
-    assert mps.wavefunction.shape == (d**7,)
+    assert mps.wavefunction().shape == (d**7,)
 
 
 def test_max_bond_dimensions_even_nqudits():
@@ -79,22 +122,22 @@ def test_max_bond_dimensions_even_nqudits():
     d = 10
     mps = MPS(nqudits=4, qudit_dimension=d)
     assert mps._max_bond_dimensions == [10, 100, 10]
-    assert mps.wavefunction.shape == (d ** 4,)
+    assert mps.wavefunction().shape == (d ** 4,)
 
     mps = MPS(nqudits=6, qudit_dimension=d)
     assert mps._max_bond_dimensions == [10, 100, 1000, 100, 10]
-    assert mps.wavefunction.shape == (d**6,)
+    assert mps.wavefunction().shape == (d**6,)
 
 
 def test_get_max_bond_dimension_qubits():
     """Tests correctness for getting maximum bond dimensions in a qubit MPS."""
     mps = MPS(nqudits=10)
     # Correct max bond dimensions: [2, 4, 8, 16, 32, 16, 8, 4, 2]
-    assert mps.get_max_bond_dimension_of(0) == 2
-    assert mps.get_max_bond_dimension_of(-1) == 2
-    assert mps.get_max_bond_dimension_of(3) == 16
-    assert mps.get_max_bond_dimension_of(4) == 32
-    assert mps.get_max_bond_dimension_of(5) == 16
+    assert mps.max_bond_dimension_of(0) == 2
+    assert mps.max_bond_dimension_of(-1) == 2
+    assert mps.max_bond_dimension_of(3) == 16
+    assert mps.max_bond_dimension_of(4) == 32
+    assert mps.max_bond_dimension_of(5) == 16
 
 
 def test_get_max_bond_dimension_qudits():
@@ -102,11 +145,11 @@ def test_get_max_bond_dimension_qudits():
     d = 10
     mps = MPS(nqudits=6, qudit_dimension=d)
     # Correct max bond dimensions: [10, 100, 1000, 100, 10]
-    assert mps.get_max_bond_dimension_of(0) == d
-    assert mps.get_max_bond_dimension_of(1) == d**2
-    assert mps.get_max_bond_dimension_of(2) == d**3
-    assert mps.get_max_bond_dimension_of(3) == d**2
-    assert mps.get_max_bond_dimension_of(-1) == d
+    assert mps.max_bond_dimension_of(0) == d
+    assert mps.max_bond_dimension_of(1) == d ** 2
+    assert mps.max_bond_dimension_of(2) == d ** 3
+    assert mps.max_bond_dimension_of(3) == d ** 2
+    assert mps.max_bond_dimension_of(-1) == d
 
 
 def test_get_bond_dimensions_product_state():
@@ -114,7 +157,7 @@ def test_get_bond_dimensions_product_state():
     n = 5
     for d in range(3, 10):
         mps = MPS(nqudits=n, qudit_dimension=d)
-        assert mps.get_bond_dimensions() == [1] * (n - 1)
+        assert mps.bond_dimensions() == [1] * (n - 1)
 
 
 def test_get_free_edge_of():
@@ -189,7 +232,7 @@ def test_from_wavefunction_two_qubits_all_zero_state():
     assert isinstance(mps, MPS)
     assert mps.nqudits == 2
     assert mps.qudit_dimension == 2
-    assert np.allclose(mps.wavefunction, wavefunction)
+    assert np.allclose(mps.wavefunction(), wavefunction)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 1.)
 
@@ -201,7 +244,7 @@ def test_from_wavefunction_three_qubits_all_zero_state():
     assert isinstance(mps, MPS)
     assert mps.nqudits == 3
     assert mps.qudit_dimension == 2
-    assert np.allclose(mps.wavefunction, wavefunction)
+    assert np.allclose(mps.wavefunction(), wavefunction)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 1.)
 
@@ -216,7 +259,7 @@ def test_from_wavefunction_random_qubit_wavefunctions():
             wavefunction = np.random.rand(2**n)
             wavefunction /= np.linalg.norm(wavefunction, ord=2)
             mps = MPS.from_wavefunction(wavefunction, nqudits=n)
-            assert np.allclose(mps.wavefunction, wavefunction)
+            assert np.allclose(mps.wavefunction(), wavefunction)
 
 
 def test_from_wavefunction_random_qudit_wavefunctions():
@@ -232,7 +275,7 @@ def test_from_wavefunction_random_qudit_wavefunctions():
                 mps = MPS.from_wavefunction(
                     wavefunction, nqudits=n, qudit_dimension=d
                 )
-                assert np.allclose(mps.wavefunction, wavefunction)
+                assert np.allclose(mps.wavefunction(), wavefunction)
 
 
 def test_from_wavefunction_invalid_args():
@@ -254,17 +297,17 @@ def test_from_wavefunction_invalid_args():
 def test_get_wavefunction_simple_qubits():
     """Tests getting the wavefunction of a simple qubit MPS."""
     mps = MPS(nqudits=3)
-    assert isinstance(mps.wavefunction, np.ndarray)
-    assert mps.wavefunction.shape == (8,)
+    assert isinstance(mps.wavefunction(), np.ndarray)
+    assert mps.wavefunction().shape == (8,)
     correct = np.array([1.0] + [0.0] * 7, dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_get_wavefunction_qutrits_simple():
     """Tests getting the wavefunction of a simple qutrit MPS."""
     mps = MPS(nqudits=3, qudit_dimension=3)
-    assert mps.wavefunction.shape == (27,)
-    assert np.allclose(mps.wavefunction, [1] + [0] * 26)
+    assert mps.wavefunction().shape == (27,)
+    assert np.allclose(mps.wavefunction(), [1] + [0] * 26)
     assert mps.is_valid()
 
 
@@ -274,7 +317,7 @@ def test_get_wavefunction_deosnt_modify_mps_qubits():
     """
     mps = MPS(nqudits=2)
     left_node, right_node = mps.get_nodes(copy=False)
-    _ = mps.wavefunction
+    _ = mps.wavefunction()
     assert len(left_node.edges) == 2
     assert len(left_node.get_all_nondangling()) == 1
     assert len(left_node.get_all_dangling()) == 1
@@ -289,7 +332,7 @@ def test_get_wavefunction_deosnt_modify_mps_qudits():
      """
     mps = MPS(nqudits=2, qudit_dimension=5)
     left_node, right_node = mps.get_nodes(copy=False)
-    _ = mps.wavefunction
+    _ = mps.wavefunction()
     assert len(left_node.edges) == 2
     assert len(left_node.get_all_nondangling()) == 1
     assert len(left_node.get_all_dangling()) == 1
@@ -317,7 +360,7 @@ def test_correctness_of_initial_product_state():
     for n in range(3, 10):
         for d in range(2, 5):
             mps = MPS(n, d)
-            wavefunction = mps.wavefunction
+            wavefunction = mps.wavefunction()
             correct = np.array([1] + [0] * (d ** n - 1), dtype=np.complex64)
             assert np.allclose(wavefunction, correct)
 
@@ -335,7 +378,7 @@ def test_apply_one_qubit_gate(gate, expected):
     for n in range(2, 8):
         for j in range(n):
             mps = MPS(n)
-            mps.apply_one_qubit_gate(gate, j)
+            mps.apply_one_qudit_gate(gate, j)
             final_state = np.reshape(mps.get_node(j).tensor, newshape=(2,))
             assert np.allclose(final_state, expected)
 
@@ -345,9 +388,9 @@ def test_apply_oneq_gate_to_all():
     NOT gate to all qubits in a two-qubit MPS.
     """
     mps = MPS(nqudits=2)
-    mps.apply_one_qubit_gate_to_all(xgate())
+    mps.apply_one_qudit_gate_to_all(xgate())
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_oneq_gate_to_all_hadamard():
@@ -356,9 +399,9 @@ def test_apply_oneq_gate_to_all_hadamard():
     """
     n = 5
     mps = MPS(nqudits=n)
-    mps.apply_one_qubit_gate_to_all(hgate())
+    mps.apply_one_qudit_gate_to_all(hgate())
     correct = 1 / 2 ** (n / 2) * np.ones(2 ** n)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_twoq_cnot_two_qubits():
@@ -369,29 +412,29 @@ def test_apply_twoq_cnot_two_qubits():
     # Check that CNOT|10> = |11>
     mps = MPS(nqudits=2)
     mps.x(0)
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|00> = |00>
     mps = MPS(nqudits=2)
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|01> = |01>
     mps = MPS(nqudits=2)
     mps.x(1)
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|11> = |10>
     mps = MPS(nqudits=2)
     mps.x(-1)  # Applies to all qubits in the MPS
-    mps.apply_two_qubit_gate(cnot(), 0, 1)
+    mps.apply_two_qudit_gate(cnot(), 0, 1)
     correct = np.array([0.0, 0.0, 1.0, 0.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
@@ -404,27 +447,27 @@ def test_apply_twoq_cnot_two_qubits_flipped_control_and_target():
     mps.x(0)
     mps.cnot(1, 0)
     correct = np.array([0.0, 0.0, 1.0, 0.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|00> = |00>
     mps = MPS(nqudits=2)
     mps.cnot(1, 0)
     correct = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|01> = |11>
     mps = MPS(nqudits=2)
     mps.x(1)
     mps.cnot(1, 0)
     correct = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Check that CNOT|11> = |01>
     mps = MPS(nqudits=2)
     mps.x(-1)
     mps.cnot(1, 0)
     correct = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.complex64)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_twoq_identical_indices_raises_error():
@@ -436,7 +479,7 @@ def test_apply_twoq_identical_indices_raises_error():
     mps9q = MPS(nqudits=9)
     with pytest.raises(ValueError):
         for mps in (mps2q, mps3q, mps9q):
-            mps.apply_two_qubit_gate(cnot(), 0, 0)
+            mps.apply_two_qudit_gate(cnot(), 0, 0)
             mps.cnot(1, 1)
 
 
@@ -448,13 +491,13 @@ def test_apply_twoq_cnot_four_qubits_interior_qubits(left):
     mps.cnot(1, 2, keep_left_canonical=left)  # State: |0110>
     correct = np.zeros(shape=(16,))
     correct[6] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=4)  # State: |0000>
     mps.cnot(1, 2, keep_left_canonical=left)  # State: |0000>
     correct = np.zeros(shape=(16,))
     correct[0] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -465,14 +508,14 @@ def test_apply_twoq_cnot_four_qubits_edge_qubits(left):
     mps.cnot(2, 3, keep_left_canonical=left)  # State: Should be |0011>
     correct = np.zeros(shape=(16,))
     correct[3] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=4)  # State: |0000>
     mps.x(0)  # State: |1000>
     mps.cnot(0, 1, keep_left_canonical=left)  # State: Should be |1100>
     correct = np.zeros(shape=(16,))
     correct[12] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -497,7 +540,7 @@ def test_apply_twoq_cnot_five_qubits_all_combinations(left):
         bits[a] = "1"
         bits[b] = "1"
         correct[int("".join(bits), 2)] = 1.0
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -507,24 +550,24 @@ def test_apply_twoq_swap_two_qubits(left):
     mps.x(0)  # State: |10>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |01>
     correct = np.array([0.0, 1.0, 0.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=2)  # State: |00>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |00>
     correct = np.array([1.0, 0.0, 0.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=2)  # State: |00>
     mps.x(1)  # State: |01>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |10>
     correct = np.array([0.0, 0.0, 1.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=2)  # State: |00>
     mps.x(-1)  # State: |11>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |11>
     correct = np.array([0.0, 0.0, 0.0, 1.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -534,24 +577,24 @@ def test_apply_twoq_swap_two_qubits(left):
     mps.x(0)  # State: |10>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |01>
     correct = np.array([0.0, 1.0, 0.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=2)  # State: |00>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |01>
     correct = np.array([1.0, 0.0, 0.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=2)  # State: |00>
     mps.x(1)  # State: |01>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |01>
     correct = np.array([0.0, 0.0, 1.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps = MPS(nqudits=2)  # State: |00>
     mps.x(-1)  # State: |11>
     mps.swap(0, 1, keep_left_canonical=left)  # State: |01>
     correct = np.array([0.0, 0.0, 0.0, 1.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -567,7 +610,7 @@ def test_apply_swap_five_qubits(left):
         bits = ["0"] * n
         bits[i + 1] = "1"
         correct[int("".join(bits), 2)] = 1.0
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -580,7 +623,7 @@ def test_qubit_hopping_left_to_right(left):
         mps.swap(i, i + 1, keep_left_canonical=left)
     correct = np.zeros(2 ** n)
     correct[0] = correct[2 ** (n - 1)] = 1.0 / np.sqrt(2)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_left_to_right_three_qubits_one_state():
@@ -589,7 +632,7 @@ def test_move_node_left_to_right_three_qubits_one_state():
     mps.x(0)                                 # State: |100>
     mps.move_node_from_left_to_right(0, 1)   # State: |010>
     correct = [0., 0., 1., 0., 0., 0., 0., 0.]
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_right_to_left_three_qubits_one_state():
@@ -598,7 +641,7 @@ def test_move_node_right_to_left_three_qubits_one_state():
     mps.x(2)                                 # State: |001>
     mps.move_node_from_right_to_left(2, 0)   # State: |100>
     correct = [0., 0., 0., 0., 1., 0., 0., 0.]
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_left_to_right_three_qubits_plus_state():
@@ -607,7 +650,7 @@ def test_move_node_left_to_right_three_qubits_plus_state():
     mps.h(0)  # State: |000> + |100>
     mps.move_node_from_left_to_right(0, 1)  # State: |000> + |010>
     correct = np.array([1., 0., 1., 0., 0., 0., 0., 0.]) / np.sqrt(2)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_right_to_left_three_qubits_plus_state():
@@ -616,7 +659,7 @@ def test_move_node_right_to_left_three_qubits_plus_state():
     mps.h(2)  # State: |000> + |001>
     mps.move_node_from_right_to_left(2, 1)  # State: |000> + |010>
     correct = np.array([1., 0., 1., 0., 0., 0., 0., 0.]) / np.sqrt(2)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_left_to_right_ten_qubits_end_nodes():
@@ -627,12 +670,12 @@ def test_move_node_left_to_right_ten_qubits_end_nodes():
     mps.move_node_from_left_to_right(0, 4)  # State: |0000010000>
     correct = np.zeros((2**n,))
     correct[2**5] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps.move_node_from_left_to_right(4, 9)  # State: |0000000001>
     correct = np.zeros((2**n,))
     correct[1] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_right_to_left_ten_qubits_end_nodes():
@@ -643,12 +686,12 @@ def test_move_node_right_to_left_ten_qubits_end_nodes():
     mps.move_node_from_right_to_left(9, 5)  # State: |0000010000>
     correct = np.zeros((2**n,))
     correct[2**4] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps.move_node_from_right_to_left(5, 0)  # State: |1000000000>
     correct = np.zeros((2**n,))
     correct[2**(n - 1)] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_left_to_right_raises_error_with_left_greater_than_right():
@@ -673,17 +716,17 @@ def test_move_node_left_to_right_then_apply_two_qubit_gate():
     mps.x(0)  # State: |10000>
     correct = np.zeros(shape=(2**n,))
     correct[16] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps.swap(3, 4)  # State: |10000>
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps.move_node_from_left_to_right(0, 3)  # State: |00010>
     mps.swap(3, 4)  # State: |00001>
 
     correct = np.zeros(shape=(2**n,))
     correct[1] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_node_right_to_left_then_apply_two_qubit_gate():
@@ -692,17 +735,17 @@ def test_move_node_right_to_left_then_apply_two_qubit_gate():
     mps.x(n - 1)  # State: |00001>
     correct = np.zeros(shape=(2**n,))
     correct[1] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps.swap(0, 1)  # State: |00001>
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     mps.move_node_from_right_to_left(4, 1)  # State: |01000>
     mps.swap(0, 1)  # State: |10000>
 
     correct = np.zeros(shape=(2**n,))
     correct[2**(n - 1)] = 1.
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_move_right_apply_gate_then_move_left():
@@ -722,7 +765,7 @@ def test_move_right_apply_gate_then_move_left():
         mps.move_node_from_right_to_left(n - 2, 0)  # State: |101>
         correct = np.zeros(shape=(2**n,))
         correct[2**(n - 1) + 1] = 1.
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -733,7 +776,7 @@ def test_bell_state(left):
     mps.h(0)
     mps.cnot(0, 1, keep_left_canonical=left)
     correct = 1.0 / np.sqrt(2) * np.array([1.0, 0.0, 0.0, 1.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -750,7 +793,7 @@ def test_twoq_gates_in_succession(left):
     mps.cnot(0, 1, keep_left_canonical=left)  # State: |11>
     mps.x(0)  # State: |01>
     correct = np.array([0.0, 1.0, 0.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_left_vs_right_canonical_two_qubit_one_gate():
@@ -764,8 +807,8 @@ def test_left_vs_right_canonical_two_qubit_one_gate():
     rmps.x(0)
     lmps.cnot(0, 1)
     rmps.cnot(0, 1)
-    lwavefunction = lmps.wavefunction
-    rwavefunction = rmps.wavefunction
+    lwavefunction = lmps.wavefunction()
+    rwavefunction = rmps.wavefunction()
     cwavefunction = np.array([0.0, 0.0, 0.0, 1.0])
     assert np.allclose(lwavefunction, cwavefunction)
     assert np.allclose(rwavefunction, cwavefunction)
@@ -825,7 +868,7 @@ def test_three_cnots_is_swap(left):
 
         correct = np.zeros((2 ** n))
         correct[2 ** (n - 2)] = 1
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_cnot_right_to_left_sweep_threeq_mps():
@@ -854,7 +897,7 @@ def test_qubit_hopping_left_to_right_and_back():
         assert mps.is_valid()
         correct = np.zeros(2 ** n)
         correct[2 ** (n - 1)] = 1
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 @pytest.mark.parametrize(["left"], [[True], [False]])
@@ -864,7 +907,7 @@ def test_cnot_truncation_two_qubits_product(left):
     mps.x(0)
     mps.cnot(0, 1, max_singular_values=0.5, keep_left_canonical=left)
     correct = np.array([0.0, 0.0, 0.0, 1.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_cnot_truncation_on_bell_state():
@@ -874,14 +917,14 @@ def test_cnot_truncation_on_bell_state():
     mps.h(0)
     mps.cnot(0, 1, fraction=0.5)
     correct = np.array([1 / np.sqrt(2), 0.0, 0.0, 0.0])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Test keeping all singular values ==> Bell state
     mps = MPS(nqudits=2)
     mps.h(0)
     mps.cnot(0, 1, fraction=1)
     correct = np.array([1 / np.sqrt(2), 0.0, 0.0, 1 / np.sqrt(2)])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_bond_dimension_doubles_two_qubit_gate():
@@ -889,14 +932,14 @@ def test_bond_dimension_doubles_two_qubit_gate():
     two-qubit gate to a product state.
     """
     mps = MPS(nqudits=2)
-    assert mps.get_bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(0) == 1
     mps.h(0)
-    assert mps.get_bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(0) == 1
     mps.cnot(0, 1)
     assert mps.is_valid()
-    assert mps.get_bond_dimension_of(0) == 2
+    assert mps.bond_dimension_of(0) == 2
     mps.cnot(0, 1)
-    assert mps.get_bond_dimension_of(0) == 2
+    assert mps.bond_dimension_of(0) == 2
 
 
 def test_keep_half_bond_dimension_singular_values():
@@ -905,28 +948,100 @@ def test_keep_half_bond_dimension_singular_values():
     """
     # Get an MPS and test the initial bond dimensions and max bond dimensions
     mps = MPS(nqudits=4)
-    assert mps.get_bond_dimensions() == [1, 1, 1]
-    assert mps.get_max_bond_dimensions() == [2, 4, 2]
+    assert mps.bond_dimensions() == [1, 1, 1]
+    assert mps.max_bond_dimensions() == [2, 4, 2]
     
     # Apply a two qubit gate explicitly keeping all singular values
     mps.r(-1)
-    mps.apply_two_qubit_gate(
+    mps.apply_two_qudit_gate(
         cnot(), 0, 1, fraction=1,
     )
-    assert mps.get_bond_dimensions() == [2, 1, 1]
+    assert mps.bond_dimensions() == [2, 1, 1]
     
     # Get an MPS and test the initial bond dimensions and max bond dimensions
     mps = MPS(nqudits=4)
-    assert mps.get_bond_dimensions() == [1, 1, 1]
-    assert mps.get_max_bond_dimensions() == [2, 4, 2]
+    assert mps.bond_dimensions() == [1, 1, 1]
+    assert mps.max_bond_dimensions() == [2, 4, 2]
     
     # Apply a two qubit gate keeping half the singular values
     mps.r(-1)
-    mps.apply_two_qubit_gate(
+    mps.apply_two_qudit_gate(
         cnot(), 0, 1, fraction=0.5
     )
-    assert mps.get_bond_dimensions() == [1, 1, 1]
-    
+    assert mps.bond_dimensions() == [1, 1, 1]
+
+
+def test_inner_product_basis_states():
+    """Tests inner products of four two-qubit basis states."""
+    # Get the four MPS
+    mps00 = MPS(nqudits=2)
+    mps01 = MPS(nqudits=2)
+    mps01.apply(MPSOperation(xgate(), 1))
+    mps10 = MPS(nqudits=2)
+    mps10.apply(MPSOperation(xgate(), 0))
+    mps11 = MPS(nqudits=2)
+    mps11.apply(MPSOperation(xgate(), 0))
+    mps11.apply(MPSOperation(xgate(), 1))
+    allmps = (mps00, mps01, mps10, mps11)
+
+    # Test inner products
+    for i in range(4):
+        for j in range(4):
+            assert np.isclose(allmps[i].inner_product(allmps[j]), i == j)
+
+
+@pytest.mark.parametrize("n", [2, 3, 5, 8, 10])
+def test_inner_product_correctness_with_qubit_wavefunctions(n: int):
+    """Tests correctness of MPS.inner_product by computing the inner product
+    from the wavefunctions.
+    """
+    np.random.seed(1)
+
+    for _ in range(50):
+        # Get the wavefunctions
+        wavefunction1 = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+        wavefunction1 /= np.linalg.norm(wavefunction1)
+        wavefunction2 = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+        wavefunction2 /= np.linalg.norm(wavefunction2)
+
+        # Get the MPS from the wavefunctions
+        mps1 = MPS.from_wavefunction(
+            wavefunction1, nqudits=n, qudit_dimension=2
+        )
+        mps2 = MPS.from_wavefunction(
+            wavefunction2, nqudits=n, qudit_dimension=2
+        )
+
+        # Check correctness for the inner products
+        assert np.isclose(
+            mps1.inner_product(mps2),
+            np.inner(wavefunction1, wavefunction2.conj())
+        )
+        assert np.isclose(
+            mps2.inner_product(mps1),
+            np.inner(wavefunction2, wavefunction1.conj())
+        )
+
+
+def test_inner_product_raises_error_mismatch_nqudits():
+    """Tests that <self|other> raises an error when
+    self.nqudits != other.nqudits.
+    """
+    mps1 = MPS(nqudits=5)
+    mps2 = MPS(nqudits=6)
+    with pytest.raises(ValueError):
+        mps1.inner_product(mps2)
+
+
+def test_inner_product_raises_error_mismatch_qudit_dimension():
+    """Tests that <self|other> raises an error when
+    self.qudit_dimension != other.qudit_dimension.
+    """
+    mps1 = MPS(nqudits=5, qudit_dimension=2)
+    mps2 = MPS(nqudits=5, qudit_dimension=3)
+    with pytest.raises(ValueError):
+        mps1.inner_product(mps2)
+
     
 def test_norm_two_qubit_product_simple():
     """Tests norm of a two-qubit product state MPS."""
@@ -934,11 +1049,11 @@ def test_norm_two_qubit_product_simple():
     assert mps.norm() == 1
     
     # Make sure the wavefunction hasn't changed
-    assert np.allclose(mps.wavefunction, [1, 0, 0, 0])
+    assert np.allclose(mps.wavefunction(), [1, 0, 0, 0])
 
 
 @pytest.mark.parametrize(["n"], 
-                          [[3], [4], [5], [6], [7], [8], [9], [10]]
+                         [[3], [4], [5], [6], [7], [8], [9], [10]]
                          )
 def test_norm_nqubit_product_state(n):
     """Tests n qubit MPS in the all |0> state have norm 1."""
@@ -970,7 +1085,7 @@ def test_norm_decreases_after_two_qubit_gate_with_truncation():
     assert mps.norm() == 1
     mps.h(0)
     mps.cnot(0, 1, maxsvals=1)
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
 
 
 def test_norm_is_zero_after_throwing_away_all_singular_values():
@@ -997,7 +1112,7 @@ def test_renormalize_mps_which_are_normalized():
             # Plus state on qubits
             if d == 2:
                 ops = [MPSOperation(hgate(), (i,)) for i in range(n)]
-                mps.apply_mps_operations(ops)
+                mps.apply(ops)
                 assert np.isclose(mps.norm(), 1.0)
                 mps.renormalize()
                 assert np.isclose(mps.norm(), 1.0)
@@ -1008,18 +1123,19 @@ def test_renormalize_after_throwing_away_singular_values_bell_state():
     and checks that renormalization works correctly.
     """
     mps = MPS(nqudits=2)
-    mps.apply_mps_operations(
+    mps.apply(
         [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
         maxsvals=1
     )
     correct = np.array([1. / np.sqrt(2), 0., 0., 0.])
-    assert np.allclose(mps.wavefunction, correct)
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.allclose(mps.wavefunction(), correct)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
 
     # Renormalize
     mps.renormalize()
+    print(mps.wavefunction())
     correct = np.array([1., 0., 0., 0.])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
     assert np.isclose(mps.norm(), 1.)
 
 
@@ -1028,26 +1144,26 @@ def test_renormalize_to_value_after_throwing_away_singular_values_bell_state():
     and checks that renormalization to a provided value works correctly.
     """
     mps = MPS(nqudits=2)
-    mps.apply_mps_operations(
+    mps.apply(
         [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
         maxsvals=1
     )
     correct = np.array([1. / np.sqrt(2), 0., 0., 0.])
-    assert np.allclose(mps.wavefunction, correct)
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.allclose(mps.wavefunction(), correct)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
 
     # Renormalize to different values
     for norm in np.linspace(0.1, 2., 100):
         mps.renormalize(to_norm=norm)
-        correct = np.array([np.sqrt(norm), 0., 0., 0.])
-        assert np.allclose(mps.wavefunction, correct)
+        correct = np.array([norm, 0., 0., 0.])
+        assert np.allclose(mps.wavefunction(), correct)
         assert np.isclose(mps.norm(), norm)
 
 
 def test_renormalize_an_mps_with_too_small_norm_raises_error():
     """Asserts that renormalizing an MPS with zero norm raises an error."""
     mps = MPS(nqudits=2)
-    mps.apply_mps_operations(
+    mps.apply(
         [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
         maxsvals=0
     )
@@ -1070,10 +1186,10 @@ def test_apply_one_qubit_mps_operation_xgate():
     """Tests applying a single qubit MPS Operation."""
     mps = MPS(nqudits=2)
     mps_operation = MPSOperation(xgate(), qudit_indices=(0,), qudit_dimension=2)
-    assert np.allclose(mps.wavefunction, [1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction(), [1., 0., 0., 0.])
 
-    mps.apply_mps_operation(mps_operation)  # Applies NOT to the first qubit
-    assert np.allclose(mps.wavefunction, [0., 0., 1., 0.])
+    mps.apply(mps_operation)  # Applies NOT to the first qubit
+    assert np.allclose(mps.wavefunction(), [0., 0., 1., 0.])
 
 
 def test_mps_operation_prepare_bell_state():
@@ -1081,27 +1197,27 @@ def test_mps_operation_prepare_bell_state():
     mps = MPS(nqudits=2)
     h_op = MPSOperation(hgate(), qudit_indices=(0,), qudit_dimension=2)
     cnot_op = MPSOperation(cnot(), qudit_indices=(0, 1), qudit_dimension=2)
-    assert np.allclose(mps.wavefunction, [1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction(), [1., 0., 0., 0.])
 
-    mps.apply_mps_operation(h_op)
-    mps.apply_mps_operation(cnot_op)
+    mps.apply(h_op)
+    mps.apply(cnot_op)
     correct = 1 / np.sqrt(2) * np.array([1, 0, 0, 1])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_mps_operation_prepare_bell_state_with_truncation():
     """Tests preparing a Bell state using MPS Operations providng maxsvals
-    as a keyword argument to MPS.apply_mps_operation.
+    as a keyword argument to MPS.apply.
     """
     mps = MPS(nqudits=2)
     h_op = MPSOperation(hgate(), qudit_indices=(0,), qudit_dimension=2)
     cnot_op = MPSOperation(cnot(), qudit_indices=(0, 1), qudit_dimension=2)
-    assert np.allclose(mps.wavefunction, [1., 0., 0., 0.])
+    assert np.allclose(mps.wavefunction(), [1., 0., 0., 0.])
 
-    mps.apply_mps_operation(h_op)
-    mps.apply_mps_operation(cnot_op, maxsvals=1)
+    mps.apply(h_op)
+    mps.apply(cnot_op, maxsvals=1)
     correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 0.])
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_nonlocal_two_qubit_gate():
@@ -1112,7 +1228,7 @@ def test_apply_nonlocal_two_qubit_gate():
         mps.cnot(0, n - 1)        # State: |10...1>
         correct = np.zeros(shape=(2**n,))
         correct[2**(n - 1) + 1] = 1.
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_prepare_ghz_states_using_nonlocal_gates():
@@ -1124,7 +1240,7 @@ def test_prepare_ghz_states_using_nonlocal_gates():
             mps.cnot(0, i)
         correct = np.zeros(shape=(2**n,))
         correct[0] = correct[-1] = 1. / np.sqrt(2)
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_qft_nonlocal_gates():
@@ -1134,10 +1250,10 @@ def test_apply_qft_nonlocal_gates():
         for i in range(n - 1, -1, -1):
             mps.h(i)
             for j in range(i - 1, -1, -1):
-                mps.apply_two_qubit_gate(cphase(2**(j - i)), j, i)
+                mps.apply_two_qudit_gate(cphase(2 ** (j - i)), j, i)
         correct = np.ones(shape=(2**n,))
         correct /= 2**(n / 2)
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_valid_after_orthonormalize_right_edges():
@@ -1147,24 +1263,24 @@ def test_valid_after_orthonormalize_right_edges():
     n = 3
     mps = MPS(nqudits=n)
     mps_operations = [MPSOperation(hgate(), (i,)) for i in range(n)]
-    mps.apply_mps_operations(mps_operations)
-    wavefunction_before = mps.wavefunction
-    assert mps.get_bond_dimension_of(0) == 1
-    assert mps.get_bond_dimension_of(1) == 1
+    mps.apply(mps_operations)
+    wavefunction_before = mps.wavefunction()
+    assert mps.bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(1) == 1
 
     # Orthonormalize the right edge of the first node
     mps.orthonormalize_right_edge_of(0)
     assert mps.is_valid()
-    assert mps.get_bond_dimension_of(0) == 1
-    assert mps.get_bond_dimension_of(1) == 1
-    assert np.allclose(mps.wavefunction, wavefunction_before)
+    assert mps.bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(1) == 1
+    assert np.allclose(mps.wavefunction(), wavefunction_before)
 
     # Orthonormalize the right edge of the second node
     mps.orthonormalize_right_edge_of(1)
     assert mps.is_valid()
-    assert mps.get_bond_dimension_of(0) == 1
-    assert mps.get_bond_dimension_of(1) == 1
-    assert np.allclose(mps.wavefunction, wavefunction_before)
+    assert mps.bond_dimension_of(0) == 1
+    assert mps.bond_dimension_of(1) == 1
+    assert np.allclose(mps.wavefunction(), wavefunction_before)
 
 
 def test_apply_povm_product_state():
@@ -1175,49 +1291,49 @@ def test_apply_povm_product_state():
     # Create an MPS in the H|0> state
     n = 3
     mps = MPS(nqudits=n)  # State: |000>
-    mps_operations = [MPSOperation(hgate(), (i,)) for i in range(n)]
-    mps.apply_mps_operations(mps_operations)  # State |+++>
+    mps_operations = [MPSOperation(hgate(), i) for i in range(n)]
+    mps.apply(mps_operations)  # State |+++>
     assert np.isclose(mps.norm(), 1.0)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert mps.bond_dimensions() == [1, 1]
 
     # Apply |0><0| to the first qubit
-    mps.apply_one_qubit_gate(
+    mps.apply_one_qudit_gate(
         pi0,
         0,
         ortho_after_non_unitary=False,
         renormalize_after_non_unitary=False
     )  # State: 1 / sqrt(2) * |0++>
     assert mps.is_valid()
-    assert np.isclose(mps.norm(), 0.5)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
+    assert mps.bond_dimensions() == [1, 1]
     correct = 1. / np.sqrt(2)**3 * np.array([1] * 4 + [0] * 4)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Apply |0><0| to the second qubit
-    mps.apply_one_qubit_gate(
+    mps.apply_one_qudit_gate(
         pi0,
         1,
         ortho_after_non_unitary=False,
         renormalize_after_non_unitary=False
     )  # State: 1 / 2 * |00+>
     assert mps.is_valid()
-    assert np.isclose(mps.norm(), 0.25)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert np.isclose(mps.norm(), 1. / 2.)
+    assert mps.bond_dimensions() == [1, 1]
     correct = 1. / np.sqrt(2)**3 * np.array([1] * 2 + [0] * 6)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
     # Apply |0><0| to the third qubit
-    mps.apply_one_qubit_gate(
+    mps.apply_one_qudit_gate(
         pi0,
         2,
         ortho_after_non_unitary=False,
         renormalize_after_non_unitary=False
     )  # State: 1 / sqrt(2)**3 * |000>
     assert mps.is_valid()
-    assert np.isclose(mps.norm(), 0.125)
-    assert mps.get_bond_dimensions() == [1, 1]
+    assert np.isclose(mps.norm(), 1. / 2. / np.sqrt(2))
+    assert mps.bond_dimensions() == [1, 1]
     correct = 1. / np.sqrt(2) ** 3 * np.array([1] * 1 + [0] * 7)
-    assert np.allclose(mps.wavefunction, correct)
+    assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
@@ -1232,37 +1348,37 @@ def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
         MPSOperation(hgate(), (0,)),
         MPSOperation(cnot(), (0, 1))
     ]
-    mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
+    mps.apply(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
     assert np.isclose(mps.norm(), 1.0)
-    assert mps.get_bond_dimensions() == [2]
-    wavefunction_before = mps.wavefunction
+    assert mps.bond_dimensions() == [2]
+    wavefunction_before = mps.wavefunction()
 
     # Check that orthonormalization does nothing to the Bell state
     mps.orthonormalize_right_edge_of(node_index=0)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 1.0)
-    assert np.allclose(mps.wavefunction, wavefunction_before)
-    assert mps.get_bond_dimensions() == [2]
+    assert np.allclose(mps.wavefunction(), wavefunction_before)
+    assert mps.bond_dimensions() == [2]
 
     # Apply |0><0| to the first qubit
-    mps.apply_one_qubit_gate(
+    mps.apply_one_qudit_gate(
         pi0,
         0,
         ortho_after_non_unitary=False,
         renormalize_after_non_unitary=False
     )
     assert mps.is_valid()
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
     correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
-    assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [2]
+    assert np.allclose(mps.wavefunction(), correct)
+    assert mps.bond_dimensions() == [2]
 
     # Now do the orthonormalization to reduce the bond dimension
     mps.orthonormalize_right_edge_of(node_index=0)
     assert mps.is_valid()
-    assert np.isclose(mps.norm(), 0.5)
-    assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [1]
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
+    assert np.allclose(mps.wavefunction(), correct)
+    assert mps.bond_dimensions() == [1]
 
 
 def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
@@ -1277,37 +1393,37 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
         MPSOperation(hgate(), (0,)),
         MPSOperation(cnot(), (0, 1))
     ]
-    mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
+    mps.apply(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
     assert np.isclose(mps.norm(), 1.0)
-    assert mps.get_bond_dimensions() == [2]
-    wavefunction_before = mps.wavefunction
+    assert mps.bond_dimensions() == [2]
+    wavefunction_before = mps.wavefunction()
 
     # Check that orthonormalization does nothing to the Bell state
     mps.orthonormalize_left_edge_of(node_index=1)
     assert mps.is_valid()
     assert np.isclose(mps.norm(), 1.0)
-    assert np.allclose(mps.wavefunction, wavefunction_before)
-    assert mps.get_bond_dimensions() == [2]
+    assert np.allclose(mps.wavefunction(), wavefunction_before)
+    assert mps.bond_dimensions() == [2]
 
     # Apply |0><0| to the second qubit
-    mps.apply_one_qubit_gate(
+    mps.apply_one_qudit_gate(
         pi0,
         1,
         ortho_after_non_unitary=False,
         renormalize_after_non_unitary=False
     )
     assert mps.is_valid()
-    assert np.isclose(mps.norm(), 0.5)
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
     correct = 1. / np.sqrt(2) * np.array([1., 0., 0., 0.])
-    assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [2]
+    assert np.allclose(mps.wavefunction(), correct)
+    assert mps.bond_dimensions() == [2]
 
     # Now do the orthonormalization to reduce the bond dimension
     mps.orthonormalize_left_edge_of(node_index=1)
     assert mps.is_valid()
-    assert np.isclose(mps.norm(), 0.5)
-    assert np.allclose(mps.wavefunction, correct)
-    assert mps.get_bond_dimensions() == [1]
+    assert np.isclose(mps.norm(), 1. / np.sqrt(2))
+    assert np.allclose(mps.wavefunction(), correct)
+    assert mps.bond_dimensions() == [1]
 
 
 def test_orthonormalize_all_tensors_edge_cases():
@@ -1317,16 +1433,16 @@ def test_orthonormalize_all_tensors_edge_cases():
     for n in range(2, 8):
         for d in (2, 3, 4):
             mps = MPS(nqudits=n, qudit_dimension=d)
-            correct = mps.wavefunction
+            correct = mps.wavefunction()
             for node_index in range(n - 1):
                 mps.orthonormalize_right_edge_of(node_index)
                 assert mps.is_valid()
-                assert np.allclose(mps.wavefunction, correct)
+                assert np.allclose(mps.wavefunction(), correct)
                 assert np.isclose(mps.norm(), 1.)
             for node_index in range(1, n):
                 mps.orthonormalize_left_edge_of(node_index)
                 assert mps.is_valid()
-                assert np.allclose(mps.wavefunction, correct)
+                assert np.allclose(mps.wavefunction(), correct)
                 assert np.isclose(mps.norm(), 1.)
 
 
@@ -1341,9 +1457,9 @@ def test_renormalize_after_non_unitary():
         mps.sweep_cnots_left_to_right()
         assert np.isclose(mps.norm(), 1.)
         for i in range(nqubits):
-            mps.apply_one_qubit_gate(
+            mps.apply_one_qudit_gate(
                 gate=pi0,
-                index=i,
+                node_index=i,
                 ortho_after_non_unitary=True,
                 renormalize_after_non_unitary=True
             )
@@ -1367,13 +1483,13 @@ def test_max_bond_dimension_not_surpassed(chi: int):
         for i in range(nqubits):
             gate = np.random.choice(singles)
             op = MPSOperation(gate, (i,))
-            mps.apply_mps_operation(op)
+            mps.apply(op)
 
         for i in range(nqubits):
             other_qubits = list(set(range(nqubits)) - {i})
             j = np.random.choice(other_qubits)
             op = MPSOperation(czgate, (i, j))
-            mps.apply_mps_operation(op, maxsvals=chi)
+            mps.apply(op, maxsvals=chi)
 
         assert all(bond_dimension <= chi
-                   for bond_dimension in mps.get_bond_dimensions())
+                   for bond_dimension in mps.bond_dimensions())

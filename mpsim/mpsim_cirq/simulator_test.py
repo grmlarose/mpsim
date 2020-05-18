@@ -27,7 +27,7 @@ def test_simulate_identity_circuit():
     )
     mps = MPSimulator().simulate(circ)
     assert np.allclose(
-        mps.wavefunction, circ.final_wavefunction()
+        mps.wavefunction(), circ.final_wavefunction()
     )
 
 
@@ -47,7 +47,7 @@ def test_simulate_bell_state_cirq_circuit():
     res = sim.simulate(circ)
     assert isinstance(res, MPS)
     assert np.allclose(
-        res.wavefunction, np.array([1., 0., 0., 1.]) / np.sqrt(2)
+        res.wavefunction(), np.array([1., 0., 0., 1.]) / np.sqrt(2)
     )
 
 
@@ -70,7 +70,7 @@ def test_simulate_bell_state_mpsim_circuit():
     res = sim.simulate(mpsim_circ)
     assert isinstance(res, MPS)
     assert np.allclose(
-        res.wavefunction, np.array([1., 0., 0., 1.]) / np.sqrt(2)
+        res.wavefunction(), np.array([1., 0., 0., 1.]) / np.sqrt(2)
     )
 
 
@@ -90,7 +90,7 @@ def test_simulate_bell_state_cirq_circuit_with_truncation():
     res = sim.simulate(circ)
     assert isinstance(res, MPS)
     assert np.allclose(
-        res.wavefunction, np.array([1., 0., 0., 0.]) / np.sqrt(2)
+        res.wavefunction(), np.array([1., 0., 0., 0.]) / np.sqrt(2)
     )
 
 
@@ -119,7 +119,7 @@ def test_simulate_ghz_circuits():
             [cirq.ops.CNOT.on(qreg[0], qreg[i]) for i in range(1, n)]
         )
         cirq_wavefunction = circ.final_wavefunction()
-        mps_wavefunction = MPSimulator().simulate(circ).wavefunction
+        mps_wavefunction = MPSimulator().simulate(circ).wavefunction()
         assert np.allclose(mps_wavefunction, cirq_wavefunction)
 
 
@@ -140,7 +140,7 @@ def test_simulate_qft_circuit():
 
         # Check correctness
         cirq_wavefunction = circ.final_wavefunction()
-        mps_wavefunction = MPSimulator().simulate(circ).wavefunction
+        mps_wavefunction = MPSimulator().simulate(circ).wavefunction()
         assert np.allclose(mps_wavefunction, cirq_wavefunction)
 
 
@@ -162,7 +162,7 @@ def test_two_qubit_parameterized_circuit_single_parameter():
         cirq.Ry(theta_value).on(qreg[0]),
         cirq.CNOT.on(*qreg)
     )
-    assert np.allclose(mps.wavefunction, solved_circuit.final_wavefunction())
+    assert np.allclose(mps.wavefunction(), solved_circuit.final_wavefunction())
 
 
 def test_parameterized_single_qubit_gates():
@@ -195,7 +195,7 @@ def test_parameterized_single_qubit_gates():
         sim = MPSimulator()
         mps = sim.simulate(circ, dict(zip(symbols, values)))
 
-        assert np.allclose(mps.wavefunction, cirq_wavefunction)
+        assert np.allclose(mps.wavefunction(), cirq_wavefunction)
 
 
 def test_parameterized_local_two_qubit_gates():
@@ -226,7 +226,7 @@ def test_parameterized_local_two_qubit_gates():
         sim = MPSimulator()
         mps = sim.simulate(circ, dict(zip(symbols, values)))
 
-        assert np.allclose(mps.wavefunction, cirq_wavefunction)
+        assert np.allclose(mps.wavefunction(), cirq_wavefunction)
 
 
 def test_parameterized_nonlocal_two_qubit_gates():
@@ -256,7 +256,7 @@ def test_parameterized_nonlocal_two_qubit_gates():
         sim = MPSimulator()
         mps = sim.simulate(circ, dict(zip(symbols, values)))
 
-        assert np.allclose(mps.wavefunction, cirq_wavefunction)
+        assert np.allclose(mps.wavefunction(), cirq_wavefunction)
 
 
 def test_three_qubit_gate_raise_value_error():
@@ -302,7 +302,7 @@ def test_random_circuits(nqubits: int):
         )
         correct = circuit.final_wavefunction()
         mps = MPSimulator().simulate(circuit)
-        assert np.allclose(mps.wavefunction, correct)
+        assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_custom_gates():
@@ -327,7 +327,7 @@ def test_custom_gates():
     )
 
     cirq_wavefunction = circ.final_wavefunction()
-    mpsim_wavefunction = MPSimulator().simulate(circ).wavefunction
+    mpsim_wavefunction = MPSimulator().simulate(circ).wavefunction()
     assert np.allclose(mpsim_wavefunction, cirq_wavefunction)
 
 
@@ -348,7 +348,7 @@ def test_simulate_sweep():
         circ, param_resolvers
     )
     assert len(allmps) == num_params
-    all_wavefunctions = [mps.wavefunction for mps in allmps]
+    all_wavefunctions = [mps.wavefunction() for mps in allmps]
     correct_wavefunctions = [
         circ._resolve_parameters_(pr).final_wavefunction()
         for pr in param_resolvers
