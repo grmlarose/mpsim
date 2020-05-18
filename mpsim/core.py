@@ -6,7 +6,9 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import tensornetwork as tn
 
-from mpsim.gates import hgate, rgate, xgate, cnot, swap, is_unitary
+from mpsim.gates import (
+    hgate, rgate, xgate, cnot, swap, is_unitary, is_hermitian
+)
 
 
 class CannotConvertToMPSOperation(Exception):
@@ -14,7 +16,7 @@ class CannotConvertToMPSOperation(Exception):
 
 
 class MPSOperation:
-    """Defines an operation which an MPS can execute."""
+    """Defines an operation which can act on a matrix product state."""
     def __init__(
         self,
         node: tn.Node,
@@ -131,6 +133,14 @@ class MPSOperation:
         """
         return is_unitary(self.tensor(reshape_to_square_matrix=True))
 
+    def is_hermitian(self) -> bool:
+        """Returns True if the MPS Operation is Hermitian, else False.
+
+        An MPS Operation is Hermitian if its gate tensor M is Hermitian, i.e.
+        if M^dag = M.
+        """
+        return is_hermitian(self.tensor(reshape_to_square_matrix=True))
+
     def is_single_qudit_operation(self) -> bool:
         """Returns True if the MPS Operation acts on a single qudit."""
         return self.num_qudits == 1
@@ -158,7 +168,7 @@ class MPS:
             @ ---- @ ---- @ ---- @ ---- @ ---- @
             |      |      |      |      |      |
 
-        Virtual indices have bond dimension one and physical indices
+        Virtual indices have bond dimension one (initially) and physical indices
         have bond dimension equal to the qudit_dimension.
 
         Args:
@@ -574,6 +584,36 @@ class MPS:
             self._nodes[i].set_tensor(
                 (to_norm / norm)**(1 / self.nqudits) * node.tensor
             )
+
+    def expectation(self, observable: MPSOperation) -> float:
+        """Returns the expectation value of an observable <mps|observable|mps>.
+
+        Args:
+            observable: Hermitian operator expressed as an MPSOperation.
+                Example:
+                    To compute the expectation of H \otimes I on a two-qubit MPS
+
+                    >>> observable = MPSOperation(mpsim.hgate(), 0)
+                    >>> mps.expectation(observable)
+
+        Raises:
+            ValueError: If the observable is not Hermitian.
+        """
+        if not observable.is_hermitian():
+            raise ValueError("Observable is not Hermitian.")
+
+        if observable.qudit_dimension != self._qudit_dimension:
+            obs_dim = observable.qudit_dimension
+            mps_dim = self._qudit_dimension
+            raise ValueError(
+                f"Dimension mismatch between observable and MPS. "
+                f"Observable is ({obs_dim}, {obs_dim}) but MPS has qudit "
+                f"dimension {mps_dim}."
+            )
+
+        mps_copy = self.copy()
+        mps_copy.apply(observable)
+        return self.inner_product(mps_copy).real
 
     def apply_one_qudit_gate(
         self,

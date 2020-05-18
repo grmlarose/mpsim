@@ -1539,3 +1539,24 @@ def test_copy_method():
             mps_copy = mps.copy()
             assert mps_copy is not mps
             assert mps_copy == mps
+
+
+def test_expectation_two_qubit_mps():
+    """Tests some expectation values for a two-qubit MPS."""
+    # |00>
+    mps = MPS(nqudits=2)
+    mps_copy = mps.copy()
+
+    # <00|HI|00> = 1 / sqrt(2)
+    h0 = MPSOperation(hgate(), 0)
+    assert np.isclose(mps.expectation(h0), 1. / np.sqrt(2))
+    assert mps == mps_copy
+
+    # <00|XI|00> = 0
+    x0 = MPSOperation(xgate(), 0)
+    assert np.isclose(mps.expectation(x0), 0.)
+    assert mps == mps_copy
+
+    # <10|HI|10> = - 1 / sqrt(2)
+    mps.apply(MPSOperation(xgate(), 0))
+    assert np.isclose(mps.expectation(h0), -1. / np.sqrt(2))
