@@ -142,7 +142,7 @@ def test_convert_and_manually_simulate_circuit_two_qubits():
     # Apply the MPSOperation's from the MPSimCircuit
     mps = mpsim.MPS(nqudits=2)
     for mps_op in mps_operations:
-        mps.apply_mps_operation(mps_op)
+        mps._apply_mps_operation(mps_op)
 
     # Check correctness for the final wavefunction
     correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 1.])
@@ -173,7 +173,7 @@ def test_convert_and_manually_simulate_circuit_nonlocal_operations_ghz_state():
     # Apply the MPSOperation's from the MPSimCircuit
     mps = mpsim.MPS(nqudits=3)
     for mps_op in mps_operations:
-        mps.apply_mps_operation(mps_op)
+        mps._apply_mps_operation(mps_op)
 
     # Check correctness for the final wavefunction
     correct = np.zeros(shape=(8,))

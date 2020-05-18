@@ -71,15 +71,6 @@ class MPSimulator(SimulatesFinalState):
                 f"Program is of type {type(program)} but should be either"
                 " a cirq.Circuit or mpsim.mpsim_cirq.MPSimCircuit."
             )
-        # TODO: This throws an error if any gates are parameterized because
-        #  these parameterized gates will not have a _unitary_ method until
-        #  they are solved by
-        #  param_resolvers = study.to_resolvers(params)
-        #  solved_circuit = protocols.resolve_parameters(program, prs)
-        # if isinstance(program, Circuit):
-        #     program = MPSimCircuit(
-        #         program, device=program.device
-        #     )
 
         param_resolvers = study.to_resolvers(params)
 
@@ -97,10 +88,12 @@ class MPSimulator(SimulatesFinalState):
 
             mps = MPS(nqudits=len(solved_circuit.all_qubits()))
             # TODO: Account for an input ordering of operations to apply here
-            for gate_operation in solved_circuit.all_operations():
-                mps_operation = mps_operation_from_gate_operation(
+            operations = [
+                mps_operation_from_gate_operation(
                     gate_operation, qubit_to_index_map
                 )
-                mps.apply_mps_operation(mps_operation, **self._options)
+                for gate_operation in solved_circuit.all_operations()
+            ]
+            mps.apply(operations, **self._options)
             trial_results.append(mps)
         return trial_results

@@ -976,12 +976,12 @@ def test_inner_product_basis_states():
     # Get the four MPS
     mps00 = MPS(nqudits=2)
     mps01 = MPS(nqudits=2)
-    mps01.apply_mps_operation(MPSOperation(xgate(), 1))
+    mps01.apply(MPSOperation(xgate(), 1))
     mps10 = MPS(nqudits=2)
-    mps10.apply_mps_operation(MPSOperation(xgate(), 0))
+    mps10.apply(MPSOperation(xgate(), 0))
     mps11 = MPS(nqudits=2)
-    mps11.apply_mps_operation(MPSOperation(xgate(), 0))
-    mps11.apply_mps_operation(MPSOperation(xgate(), 1))
+    mps11.apply(MPSOperation(xgate(), 0))
+    mps11.apply(MPSOperation(xgate(), 1))
     allmps = (mps00, mps01, mps10, mps11)
 
     # Test inner products
@@ -1112,7 +1112,7 @@ def test_renormalize_mps_which_are_normalized():
             # Plus state on qubits
             if d == 2:
                 ops = [MPSOperation(hgate(), (i,)) for i in range(n)]
-                mps.apply_mps_operations(ops)
+                mps.apply(ops)
                 assert np.isclose(mps.norm(), 1.0)
                 mps.renormalize()
                 assert np.isclose(mps.norm(), 1.0)
@@ -1123,7 +1123,7 @@ def test_renormalize_after_throwing_away_singular_values_bell_state():
     and checks that renormalization works correctly.
     """
     mps = MPS(nqudits=2)
-    mps.apply_mps_operations(
+    mps.apply(
         [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
         maxsvals=1
     )
@@ -1144,7 +1144,7 @@ def test_renormalize_to_value_after_throwing_away_singular_values_bell_state():
     and checks that renormalization to a provided value works correctly.
     """
     mps = MPS(nqudits=2)
-    mps.apply_mps_operations(
+    mps.apply(
         [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
         maxsvals=1
     )
@@ -1163,7 +1163,7 @@ def test_renormalize_to_value_after_throwing_away_singular_values_bell_state():
 def test_renormalize_an_mps_with_too_small_norm_raises_error():
     """Asserts that renormalizing an MPS with zero norm raises an error."""
     mps = MPS(nqudits=2)
-    mps.apply_mps_operations(
+    mps.apply(
         [MPSOperation(hgate(), (0,)), MPSOperation(cnot(), (0, 1))],
         maxsvals=0
     )
@@ -1188,7 +1188,7 @@ def test_apply_one_qubit_mps_operation_xgate():
     mps_operation = MPSOperation(xgate(), qudit_indices=(0,), qudit_dimension=2)
     assert np.allclose(mps.wavefunction(), [1., 0., 0., 0.])
 
-    mps.apply_mps_operation(mps_operation)  # Applies NOT to the first qubit
+    mps.apply(mps_operation)  # Applies NOT to the first qubit
     assert np.allclose(mps.wavefunction(), [0., 0., 1., 0.])
 
 
@@ -1199,23 +1199,23 @@ def test_mps_operation_prepare_bell_state():
     cnot_op = MPSOperation(cnot(), qudit_indices=(0, 1), qudit_dimension=2)
     assert np.allclose(mps.wavefunction(), [1., 0., 0., 0.])
 
-    mps.apply_mps_operation(h_op)
-    mps.apply_mps_operation(cnot_op)
+    mps.apply(h_op)
+    mps.apply(cnot_op)
     correct = 1 / np.sqrt(2) * np.array([1, 0, 0, 1])
     assert np.allclose(mps.wavefunction(), correct)
 
 
 def test_mps_operation_prepare_bell_state_with_truncation():
     """Tests preparing a Bell state using MPS Operations providng maxsvals
-    as a keyword argument to MPS.apply_mps_operation.
+    as a keyword argument to MPS.apply.
     """
     mps = MPS(nqudits=2)
     h_op = MPSOperation(hgate(), qudit_indices=(0,), qudit_dimension=2)
     cnot_op = MPSOperation(cnot(), qudit_indices=(0, 1), qudit_dimension=2)
     assert np.allclose(mps.wavefunction(), [1., 0., 0., 0.])
 
-    mps.apply_mps_operation(h_op)
-    mps.apply_mps_operation(cnot_op, maxsvals=1)
+    mps.apply(h_op)
+    mps.apply(cnot_op, maxsvals=1)
     correct = 1 / np.sqrt(2) * np.array([1., 0., 0., 0.])
     assert np.allclose(mps.wavefunction(), correct)
 
@@ -1263,7 +1263,7 @@ def test_valid_after_orthonormalize_right_edges():
     n = 3
     mps = MPS(nqudits=n)
     mps_operations = [MPSOperation(hgate(), (i,)) for i in range(n)]
-    mps.apply_mps_operations(mps_operations)
+    mps.apply(mps_operations)
     wavefunction_before = mps.wavefunction()
     assert mps.bond_dimension_of(0) == 1
     assert mps.bond_dimension_of(1) == 1
@@ -1292,7 +1292,7 @@ def test_apply_povm_product_state():
     n = 3
     mps = MPS(nqudits=n)  # State: |000>
     mps_operations = [MPSOperation(hgate(), i) for i in range(n)]
-    mps.apply_mps_operations(mps_operations)  # State |+++>
+    mps.apply(mps_operations)  # State |+++>
     assert np.isclose(mps.norm(), 1.0)
     assert mps.bond_dimensions() == [1, 1]
 
@@ -1348,7 +1348,7 @@ def test_apply_povm_bell_state_right_ortho_reduces_bond_dimension():
         MPSOperation(hgate(), (0,)),
         MPSOperation(cnot(), (0, 1))
     ]
-    mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
+    mps.apply(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
     assert np.isclose(mps.norm(), 1.0)
     assert mps.bond_dimensions() == [2]
     wavefunction_before = mps.wavefunction()
@@ -1393,7 +1393,7 @@ def test_apply_povm_bell_state_left_ortho_reduces_bond_dimension():
         MPSOperation(hgate(), (0,)),
         MPSOperation(cnot(), (0, 1))
     ]
-    mps.apply_mps_operations(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
+    mps.apply(mps_operations)  # State: 1 / sqrt(2) |00> + |11>
     assert np.isclose(mps.norm(), 1.0)
     assert mps.bond_dimensions() == [2]
     wavefunction_before = mps.wavefunction()
@@ -1483,13 +1483,13 @@ def test_max_bond_dimension_not_surpassed(chi: int):
         for i in range(nqubits):
             gate = np.random.choice(singles)
             op = MPSOperation(gate, (i,))
-            mps.apply_mps_operation(op)
+            mps.apply(op)
 
         for i in range(nqubits):
             other_qubits = list(set(range(nqubits)) - {i})
             j = np.random.choice(other_qubits)
             op = MPSOperation(czgate, (i, j))
-            mps.apply_mps_operation(op, maxsvals=chi)
+            mps.apply(op, maxsvals=chi)
 
         assert all(bond_dimension <= chi
                    for bond_dimension in mps.bond_dimensions())

@@ -1010,6 +1010,7 @@ class MPS:
             return
 
         while current_node_index < final_node_index:
+            # TODO: SWAP is only for qubits
             self.swap(current_node_index, current_node_index + 1, **kwargs)
             current_node_index += 1
 
@@ -1038,50 +1039,66 @@ class MPS:
             return
 
         while current_node_index > final_node_index:
+            # TODO: SWAP is only for qubits
             self.swap(current_node_index - 1, current_node_index, **kwargs)
             current_node_index -= 1
 
-    # TODO: Take single qudit gate application kwargs/options into account
-    def apply_mps_operation(
-            self, mps_operation: MPSOperation, **kwargs
+    def apply(
+        self,
+        operations: Union[MPSOperation, Sequence[MPSOperation]],
+        **kwargs,
     ) -> None:
+        """Apply operations to the MPS.
+
+        Args:
+            operations: (Sequence of) valid MPS Operation(s) to apply.
+
+        Keyword Args:
+            For one qudit gates:
+
+
+            For two qudit gates:
+
+        Raises:
+            ValueError: On an invalid operation.
+        """
+        try:
+            operations = iter(operations)
+        except TypeError:
+            operations = (operations,)
+
+        # TODO: Parallelize application of operations
+        for op in operations:
+            self._apply_mps_operation(op, **kwargs)
+
+    def _apply_mps_operation(self, operation: MPSOperation, **kwargs) -> None:
         """Applies the MPS Operation to the MPS.
 
         Args:
-            mps_operation: Valid MPS Operation to apply to the MPS.
-
-        Keyword Args:
-            See MPS.apply_two_qudit_gate.
+            operation: Valid MPS Operation to apply to the MPS.
         """
-        if not mps_operation.is_valid():
+        if not isinstance(operation, MPSOperation):
+            raise TypeError(
+                "Argument operation should be of type MPSOperation but is "
+                f"of type {type(operation)}."
+            )
+        if not operation.is_valid():
             raise ValueError("Input MPS Operation is not valid.")
 
-        if mps_operation.is_single_qudit_operation():
+        if operation.is_single_qudit_operation():
             self.apply_one_qudit_gate(
-                mps_operation.node(), *mps_operation.qudit_indices
+                operation.node(), *operation.qudit_indices, **kwargs
             )
-        elif mps_operation.is_two_qudit_operation():
+        elif operation.is_two_qudit_operation():
             self.apply_two_qudit_gate(
-                mps_operation.node(), *mps_operation.qudit_indices, **kwargs
+                operation.node(), *operation.qudit_indices, **kwargs
             )
         else:
             raise ValueError(
-                "Only one-qudit and two-qudit gates are currently supported."
+                "Only one-qudit and two-qudit gates are supported. "
+                "To apply a gate on three or more qudits, the gate must be "
+                "compiled into a sequence of one- and two-qudit gates."
             )
-
-    def apply_mps_operations(
-            self, mps_operations: Sequence[MPSOperation], **kwargs
-    ):
-        """Applies the sequence of MPS Operations to the MPS.
-
-        Args:
-            mps_operations: List of valid MPS Operations to apply to the MPS.
-
-        Keyword Args:
-            See MPS.apply_two_qudit_gate.
-        """
-        for mps_operation in mps_operations:
-            self.apply_mps_operation(mps_operation, **kwargs)
 
     # TODO: Remove single qubit gates -- these don't generalize to qudits.
     def x(self, index: int) -> None:
