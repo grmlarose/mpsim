@@ -1,2 +1,12 @@
 from mpsim.core import MPS, MPSOperation
-import mpsim.gates
+from mpsim.gates import (
+    igate,
+    xgate,
+    ygate,
+    zgate,
+    hgate,
+    rgate,
+    cnot,
+    cphase,
+    swap
+)
