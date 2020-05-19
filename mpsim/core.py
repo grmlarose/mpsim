@@ -575,6 +575,30 @@ class MPS:
                 (to_norm / norm)**(1 / self.nqudits) * node.tensor
             )
 
+    def reduced_density_matrix(
+        self,
+        node_indices: Union[int, List[int]]
+    ) -> np.ndarray:
+        """Computes the reduced density matrix of the MPS on the given nodes.
+
+        Args:
+            node_indices: Node index, or list of node indices, to keep.
+                Indices not in node_indices are traced out.
+
+        Raises:
+            ValueError: If the node_indices are invalid.
+        """
+        try:
+            node_indices = iter(node_indices)
+        except TypeError:
+            node_indices = [node_indices]
+
+        node_indices = list(set(node_indices))  # Remove duplicates
+        if min(node_indices) < 0 or max(node_indices) > self._nqudits - 1:
+            raise ValueError("One or more invalid node indices.")
+
+        bra = self.copy()
+
     def apply_one_qudit_gate(
         self,
         gate: tn.Node,
