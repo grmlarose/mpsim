@@ -496,6 +496,11 @@ class MPS:
             fin.tensor, newshape=(self._qudit_dimension ** self._nqudits)
         )
 
+    def dagger(self):
+        """Takes the dagger (conjugate transpose) of the MPS."""
+        for i in range(self._nqudits):
+            self._nodes[i].set_tensor(np.conj(self._nodes[i].tensor))
+
     def inner_product(self, other: 'MPS') -> np.complex:
         """Returns the inner product between self and other computed by
         contraction. Mathematically, the inner product is <self|other>.
@@ -607,7 +612,56 @@ class MPS:
         if min(node_indices) < 0 or max(node_indices) > self._nqudits - 1:
             raise ValueError("One or more invalid node indices.")
 
+        print("======== In MPS.reduced_density_matrix ========")
+        print("My node_indices =", node_indices)
+
+        ket = self.copy()
+        print("Wavefunction of ket:")
+        print(ket.wavefunction())
         bra = self.copy()
+        bra.dagger()
+        print("Wavefunction of bra:")
+        print(bra.wavefunction())
+        a = ket._nodes
+        b = bra._nodes
+
+        aedges = [node.get_all_dangling().pop() for node in ket._nodes]
+        bedges = [node.get_all_dangling().pop() for node in bra._nodes]
+
+        for i in range(self._nqudits - 1):
+            print("At site", i)
+            # Connect edges if we don't want the density matrix of these qudits
+            if i not in node_indices:
+                print("Connnecting free edges at site", i)
+                _ = tn.connect(aedges[i], bedges[i])
+            print("Not connecting free edges at site", i)
+            # Contract
+            mid = tn.contract_between(
+                a[i], b[i], allow_outer_product=True
+            )
+            print(f"Tensor from contracting free edges at site {i}:")
+            print(mid.tensor)
+            print(mid.edges)
+            new = tn.contract_between(mid, a[i + 1])
+            print(f"New top tensor at site {i}:")
+            print(new.tensor)
+            print(new.edges)
+            a[i + 1] = new
+
+        if self._nqudits - 1 not in node_indices:
+            print("Connecting free edges at site", self._nqudits - 1)
+            _ = tn.connect(aedges[-1], bedges[-1])
+        # tn.flatten_edges_between(a[-1], b[-1])
+        fin = tn.contract_between(
+            a[-1], b[-1], allow_outer_product=True
+        )
+
+        print("Final tensor:")
+        print(fin.tensor)
+        print(fin.edges)
+        n = len(node_indices)
+        d = self._qudit_dimension
+        return np.reshape(fin.tensor, newshape=(d**n, d**n))
 
     def expectation(self, observable: MPSOperation) -> float:
         """Returns the expectation value of an observable <mps|observable|mps>.
