@@ -7,7 +7,8 @@ import numpy as np
 import tensornetwork as tn
 
 from mpsim.gates import (
-    hgate, rgate, xgate, cnot, swap, is_unitary, is_hermitian
+    hgate, rgate, xgate, cnot, swap, is_unitary, is_hermitian,
+    computational_basis_state
 )
 
 
@@ -647,6 +648,57 @@ class MPS:
         n = len(node_indices)
         d = self._qudit_dimension
         return np.reshape(mid.tensor, newshape=(d**n, d**n))
+
+    def _sample(self) -> Sequence[int]:
+        """Returns a string of measured states at each site
+        by sampling once from the MPS.
+        """
+        string = []
+        states = list(range(self._qudit_dimension))
+        copy = self.copy()
+        for i in range(self._nqudits):
+            qubit = self.reduced_density_matrix(i).diagonal().real
+            string.append(np.random.choice(states, size=1, p=qubit)[0])
+            state = computational_basis_state(
+                string[-1], dim=self._qudit_dimension
+            )
+            # print("Qubit:", qubit)
+            # print("Measured:", string[-1])
+            edge = tn.connect(
+                copy._nodes[i].get_all_dangling().pop(),
+                state.get_all_dangling().pop()
+            )
+            mid = tn.contract(edge)
+            if i < self._nqudits - 1:
+                new = tn.contract_between(mid, copy._nodes[i + 1])
+                copy._nodes[i + 1] = new
+        # print("Final node:")
+        # print(mid.tensor)
+        assert len(mid.edges) == 0
+        prob = abs(mid.tensor)**2
+        print("String:", string)
+        print("Prob:", np.round(prob, 2))
+        return string
+
+    def sample(self, nsamples: int) -> List[Sequence[int]]:
+        """Samples from the MPS, returning a list of (bit)strings of measured
+        states on each site.
+
+        Args:
+            nsamples: Number of times to sample from the MPS.
+
+        Raises: ValueError: If nsamples is negative or non-integer.
+        """
+        if not isinstance(nsamples, int):
+            raise ValueError(
+                f"Arg nsamples should be an int but is a {type(nsamples)}."
+            )
+
+        if nsamples <= 0:
+            raise ValueError(
+                f"Arg nsamples should be positive but is {nsamples}."
+            )
+        return [self._sample() for _ in range(nsamples)]
 
     def expectation(self, observable: MPSOperation) -> float:
         """Returns the expectation value of an observable <mps|observable|mps>.
