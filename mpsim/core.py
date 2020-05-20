@@ -608,7 +608,14 @@ class MPS:
         except TypeError:
             node_indices = [node_indices]
 
-        node_indices = list(set(node_indices))  # Remove duplicates
+        node_indices = tuple(node_indices)
+        print("In RDM, node_indices =")
+        print(type(node_indices))
+        print(node_indices)
+
+        if len(set(node_indices)) < len(node_indices):
+            raise ValueError("Node indices contains duplicates.")
+
         if min(node_indices) < 0 or max(node_indices) > self._nqudits - 1:
             raise ValueError("One or more invalid node indices.")
 
@@ -623,12 +630,11 @@ class MPS:
         aedges = [node.get_all_dangling().pop() for node in ket._nodes]
         bedges = [node.get_all_dangling().pop() for node in bra._nodes]
 
-        ket_free_edges = [
-            aedges[i] for i in range(self._nqudits) if i in node_indices
-        ]
-        bra_free_edges = [
-            bedges[i] for i in range(self._nqudits) if i in node_indices
-        ]
+        ket_free_edges = []
+        bra_free_edges = []
+        for i in node_indices:
+            ket_free_edges.append(aedges[i])
+            bra_free_edges.append(bedges[i])
 
         for i in range(self._nqudits - 1):
             # print("At site", i)

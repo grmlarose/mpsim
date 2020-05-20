@@ -1639,16 +1639,20 @@ def test_reduced_density_matrix_two_qubits():
 def test_density_matrix_three_qubits():
     """Tests computing the full density matrix on a three-qubit MPS."""
     np.random.seed(5)
-    wavefunction = np.random.randn(8) + np.random.randn(8) * 1j
-    wavefunction /= np.linalg.norm(wavefunction)
-    mps = MPS.from_wavefunction(wavefunction, nqudits=3)
+    for _ in range(50):
+        wavefunction = np.random.randn(8) + np.random.randn(8) * 1j
+        wavefunction /= np.linalg.norm(wavefunction)
+        mps = MPS.from_wavefunction(wavefunction, nqudits=3)
 
-    for i in [(0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2)]:
-        print("\n\n\n", i)
-        correct = density_matrix_from_state_vector(
-            state=wavefunction, indices=i
-        )
-        rdm = mps.reduced_density_matrix(node_indices=i)
-        print(np.round(rdm, 3))
-        print(np.round(correct, 3))
-        assert np.allclose(rdm, correct)
+        for i in [(0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2)]:
+            correct = density_matrix_from_state_vector(
+                state=wavefunction, indices=i
+            )
+            rdm = mps.reduced_density_matrix(node_indices=i)
+            assert np.allclose(rdm, correct)
+
+            correct = density_matrix_from_state_vector(
+                state=wavefunction, indices=tuple(reversed(i))
+            )
+            rdm = mps.reduced_density_matrix(node_indices=tuple(reversed(i)))
+            assert np.allclose(rdm, correct)
