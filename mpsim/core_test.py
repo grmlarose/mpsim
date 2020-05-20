@@ -1,5 +1,6 @@
 """Unit tests for inital MPS states."""
 
+from copy import copy
 import pytest
 
 import numpy as np
@@ -18,6 +19,7 @@ from mpsim.gates import (
     plus_state,
     computational_basis_projector
 )
+from cirq.qis import density_matrix_from_state_vector
 
 
 def test_single_qubit_identity_mps_operation():
@@ -1493,3 +1495,217 @@ def test_max_bond_dimension_not_surpassed(chi: int):
 
         assert all(bond_dimension <= chi
                    for bond_dimension in mps.bond_dimensions())
+
+
+def test_equal():
+    """Tests checking equality of MPS."""
+    for n in (2, 3, 5, 10):
+        for d in (2, 3, 5, 10):
+            mps1 = MPS(nqudits=n, qudit_dimension=d)
+            mps2 = MPS(nqudits=n, qudit_dimension=d)
+            assert mps1 == mps1
+            assert mps2 == mps2
+            assert mps1 == mps2
+
+            if d == 2:
+                mps1.apply(MPSOperation(xgate(), 0))
+                assert mps1 != mps2
+
+                mps2.apply(MPSOperation(xgate(), 0))
+                assert mps1 == mps2
+
+
+def test_equal_different_prefixes():
+    """Tests identical MPS with different tensor names are still equal."""
+    mps1 = MPS(nqudits=10, qudit_dimension=2, tensor_prefix="mps1_")
+    mps2 = MPS(nqudits=10, qudit_dimension=2, tensor_prefix="mps2_")
+    assert mps1 == mps2
+
+
+def test_copy():
+    """Tests copying an MPS by calling copy(MPS)."""
+    for n in (2, 3, 5, 10):
+        for d in (2, 3, 5, 10):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            mps_copy = copy(mps)
+            assert mps_copy is not mps
+            assert mps_copy == mps
+
+
+def test_copy_method():
+    """Tests copying an MPS by calling MPS.copy()."""
+    for n in (2, 3, 5, 10):
+        for d in (2, 3, 5, 10):
+            mps = MPS(nqudits=n, qudit_dimension=d)
+            mps_copy = mps.copy()
+            assert mps_copy is not mps
+            assert mps_copy == mps
+
+
+def test_expectation_two_qubit_mps():
+    """Tests some expectation values for a two-qubit MPS."""
+    # |00>
+    mps = MPS(nqudits=2)
+    mps_copy = mps.copy()
+
+    # <00|HI|00> = 1 / sqrt(2)
+    h0 = MPSOperation(hgate(), 0)
+    assert np.isclose(mps.expectation(h0), 1. / np.sqrt(2))
+    assert mps == mps_copy
+
+    # <00|XI|00> = 0
+    x0 = MPSOperation(xgate(), 0)
+    assert np.isclose(mps.expectation(x0), 0.)
+    assert mps == mps_copy
+
+    # <10|HI|10> = - 1 / sqrt(2)
+    mps.apply(MPSOperation(xgate(), 0))
+    assert np.isclose(mps.expectation(h0), -1. / np.sqrt(2))
+
+
+def test_dagger_simple():
+    """Tests taking the dagger of an MPS."""
+    wavefunction = np.array([1j, 0., 0., 0.])
+    mps = MPS.from_wavefunction(wavefunction, nqudits=2, qudit_dimension=2)
+    assert np.allclose(mps.wavefunction(), wavefunction)
+    mps.dagger()
+    assert np.allclose(mps.wavefunction(), wavefunction.conj().T)
+
+
+def test_dagger_random_qubit_wavefunctions():
+    """Tests taking the dagger of an MPS created from random wavefunctions."""
+    np.random.seed(10)
+    for n in (2, 3, 5, 10):
+        for _ in range(20):
+            wavefunction = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+            wavefunction /= np.linalg.norm(wavefunction, ord=2)
+            mps = MPS.from_wavefunction(wavefunction, nqudits=n)
+            assert np.allclose(mps.wavefunction(), wavefunction)
+            mps.dagger()
+            assert np.allclose(mps.wavefunction(), wavefunction.conj().T)
+
+
+def test_reduced_density_matrix_simple():
+    """Tests computing the reduced density matrix of both sites of a two-qubit
+    MPS product states.
+    """
+    # State: |00>
+    mps = MPS(nqudits=2, qudit_dimension=2)
+    for i in (0, 1):
+        rdm = mps.reduced_density_matrix(node_indices=i)
+        correct = np.array([[1., 0.], [0., 0.]])
+        assert np.allclose(rdm, correct)
+        assert mps == MPS(nqudits=2, qudit_dimension=2)
+
+    # State: |10>
+    mps.apply(MPSOperation(xgate(), 0))
+    rdm = mps.reduced_density_matrix(node_indices=0)
+    correct = np.array([[0., 0.], [0., 1.]])
+    assert np.allclose(rdm, correct)
+
+    rdm = mps.reduced_density_matrix(node_indices=1)
+    correct = np.array([[1., 0.], [0., 0.]])
+    assert np.allclose(rdm, correct)
+
+    # State |11>
+    mps.apply(MPSOperation(xgate(), 1))
+    rdm = mps.reduced_density_matrix(node_indices=0)
+    correct = np.array([[0., 0.], [0., 1.]])
+    assert np.allclose(rdm, correct)
+
+    rdm = mps.reduced_density_matrix(node_indices=1)
+    correct = np.array([[0., 0.], [0., 1.]])
+    assert np.allclose(rdm, correct)
+
+
+def test_reduced_density_matrix_invalid_indices():
+    """Tests the correct errors are raised for invalid indices."""
+    mps = MPS(nqudits=2)
+
+    with pytest.raises(IndexError):
+        mps.reduced_density_matrix(node_indices=-1)
+
+    with pytest.raises(IndexError):
+        mps.reduced_density_matrix(node_indices=22)
+
+    with pytest.raises(ValueError):
+        mps.reduced_density_matrix(node_indices=[0, 0])
+
+
+def test_reduced_density_matrix_two_qubits():
+    """Tests computing the reduced density matrix for a two-qubit MPS with
+    random wavefunctions.
+    """
+    np.random.seed(3)
+    for _ in range(50):
+        wavefunction = np.random.randn(4) + np.random.randn(4) * 1j
+        wavefunction /= np.linalg.norm(wavefunction)
+        mps = MPS.from_wavefunction(wavefunction, nqudits=2)
+
+        for i in (0, 1):
+            correct = density_matrix_from_state_vector(
+                state=wavefunction, indices=[i]
+            )
+            rdm = mps.reduced_density_matrix(node_indices=i)
+            assert np.allclose(rdm, correct)
+            assert np.allclose(mps.wavefunction(), wavefunction)
+
+
+def test_density_matrix_three_qubits():
+    """Tests computing the full density matrix on a three-qubit MPS."""
+    np.random.seed(5)
+    for _ in range(50):
+        wavefunction = np.random.randn(8) + np.random.randn(8) * 1j
+        wavefunction /= np.linalg.norm(wavefunction)
+        mps = MPS.from_wavefunction(wavefunction, nqudits=3)
+
+        for i in [(0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2)]:
+            correct = density_matrix_from_state_vector(
+                state=wavefunction, indices=i
+            )
+            rdm = mps.reduced_density_matrix(node_indices=i)
+            assert np.allclose(rdm, correct)
+
+            correct = density_matrix_from_state_vector(
+                state=wavefunction, indices=tuple(reversed(i))
+            )
+            rdm = mps.reduced_density_matrix(node_indices=tuple(reversed(i)))
+            assert np.allclose(rdm, correct)
+            assert np.allclose(mps.wavefunction(), wavefunction)
+
+
+@pytest.mark.parametrize("n", [3, 5, 8])
+def test_qubit_mps_single_site_density_matrices(n: int):
+    """Tests computing single-site partial density matrices on qubit MPS."""
+    np.random.seed(1)
+    wavefunction = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+    wavefunction /= np.linalg.norm(wavefunction)
+    mps = MPS.from_wavefunction(wavefunction, nqudits=n)
+
+    site = [int(np.random.choice(range(n)))]
+    rdm = mps.reduced_density_matrix(node_indices=site)
+    correct = density_matrix_from_state_vector(
+        state=wavefunction, indices=site
+    )
+    assert np.allclose(rdm, correct)
+    assert np.allclose(mps.wavefunction(), wavefunction)
+
+
+@pytest.mark.parametrize("n", [3, 5, 8])
+def test_qubit_mps_multi_site_density_matrices(n: int):
+    """Tests computing partial density matrices."""
+    np.random.seed(1)
+    for _ in range(50):
+        wavefunction = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+        wavefunction /= np.linalg.norm(wavefunction)
+        mps = MPS.from_wavefunction(wavefunction, nqudits=n)
+
+        size = np.random.randint(low=1, high=n)
+        qubits = list(np.random.choice(range(n), size=size, replace=False))
+        sites = [int(q) for q in qubits]
+        rdm = mps.reduced_density_matrix(node_indices=sites)
+        correct = density_matrix_from_state_vector(
+            state=wavefunction, indices=sites
+        )
+        assert np.allclose(rdm, correct)
+        assert np.allclose(mps.wavefunction(), wavefunction)

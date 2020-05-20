@@ -11,6 +11,7 @@ import tensornetwork as tn
 
 
 # Helper functions
+# TODO: Reduce code duplication in helper functions
 def is_unitary(gate: Union[np.ndarray, tn.Node]) -> bool:
     """Returns True if the gate (of the node) is unitary, else False."""
     if not isinstance(gate, (np.ndarray, tn.Node)):
@@ -30,6 +31,25 @@ def is_unitary(gate: Union[np.ndarray, tn.Node]) -> bool:
     return np.allclose(
         gate.conj().T @ gate, np.identity(gate.shape[0]), atol=1e-5
     )
+
+
+def is_hermitian(gate: Union[np.ndarray, tn.Node]) -> bool:
+    """Returns True if the gate (of the node) is Hermitian, else False."""
+    if not isinstance(gate, (np.ndarray, tn.Node)):
+        raise TypeError("Invalid type for gate.")
+
+    if isinstance(gate, tn.Node):
+        gate = gate.tensor
+
+    # Reshape the matrix if necessary
+    if len(gate.shape) > 2:
+        if len(set(gate.shape)) != 1:
+            raise ValueError("Gate shape should be of the form (d, d, ..., d).")
+        dim = int(np.sqrt(gate.size))
+        gate = np.reshape(gate, newshape=(dim, dim))
+
+    # Check if the matrix is Hermitian
+    return np.allclose(gate.conj().T, gate, atol=1e-5)
 
 
 def is_projector(gate: Union[np.ndarray, tn.Node]) -> bool:
@@ -101,7 +121,6 @@ def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
     Args:
         seed: Seed for random number generator.
         angle_scale: Floating point value to scale angles by. Default 1.
-    
     """
     if seed:
         np.random.seed(seed)
@@ -118,9 +137,6 @@ def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
     unitary = expm(
         -1j * theta * (mx * _xmatrix + my * _ymatrix * mz * _zmatrix)
     )
-
-    # TODO: Note to Guifre diagonal elements of this unitary are always real,
-    #  and off-diagonal elements are imaginary
     return tn.Node(unitary)
 
 

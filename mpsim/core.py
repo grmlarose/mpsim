@@ -6,7 +6,9 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import tensornetwork as tn
 
-from mpsim.gates import hgate, rgate, xgate, cnot, swap, is_unitary
+from mpsim.gates import (
+    hgate, rgate, xgate, cnot, swap, is_unitary, is_hermitian
+)
 
 
 class CannotConvertToMPSOperation(Exception):
@@ -14,7 +16,7 @@ class CannotConvertToMPSOperation(Exception):
 
 
 class MPSOperation:
-    """Defines an operation which an MPS can execute."""
+    """Defines an operation which can act on a matrix product state."""
     def __init__(
         self,
         node: tn.Node,
@@ -131,6 +133,14 @@ class MPSOperation:
         """
         return is_unitary(self.tensor(reshape_to_square_matrix=True))
 
+    def is_hermitian(self) -> bool:
+        """Returns True if the MPS Operation is Hermitian, else False.
+
+        An MPS Operation is Hermitian if its gate tensor M is Hermitian, i.e.
+        if M^dag = M.
+        """
+        return is_hermitian(self.tensor(reshape_to_square_matrix=True))
+
     def is_single_qudit_operation(self) -> bool:
         """Returns True if the MPS Operation acts on a single qudit."""
         return self.num_qudits == 1
@@ -158,7 +168,7 @@ class MPS:
             @ ---- @ ---- @ ---- @ ---- @ ---- @
             |      |      |      |      |      |
 
-        Virtual indices have bond dimension one and physical indices
+        Virtual indices have bond dimension one (initially) and physical indices
         have bond dimension equal to the qudit_dimension.
 
         Args:
@@ -486,6 +496,11 @@ class MPS:
             fin.tensor, newshape=(self._qudit_dimension ** self._nqudits)
         )
 
+    def dagger(self):
+        """Takes the dagger (conjugate transpose) of the MPS."""
+        for i in range(self._nqudits):
+            self._nodes[i].set_tensor(np.conj(self._nodes[i].tensor))
+
     def inner_product(self, other: 'MPS') -> np.complex:
         """Returns the inner product between self and other computed by
         contraction. Mathematically, the inner product is <self|other>.
@@ -574,6 +589,94 @@ class MPS:
             self._nodes[i].set_tensor(
                 (to_norm / norm)**(1 / self.nqudits) * node.tensor
             )
+
+    def reduced_density_matrix(
+        self,
+        node_indices: Union[int, Sequence[int]]
+    ) -> np.ndarray:
+        """Computes the reduced density matrix of the MPS on the given nodes.
+
+        Args:
+            node_indices: Node index, or list of node indices, to keep.
+                Indices not in node_indices are traced out.
+
+        Raises:
+            ValueError: If the node_indices contain duplicate indices.
+            IndexError: If the indices are out of bounds for the MPS.
+        """
+        try:
+            node_indices = iter(node_indices)
+        except TypeError:
+            node_indices = [node_indices]
+        node_indices = tuple(node_indices)
+
+        if len(set(node_indices)) < len(node_indices):
+            raise ValueError("Node indices contains duplicates.")
+
+        if min(node_indices) < 0 or max(node_indices) > self._nqudits - 1:
+            raise IndexError("One or more invalid node indices.")
+
+        ket = self.copy()
+        bra = self.copy()
+        bra.dagger()
+        ket_edges = [node.get_all_dangling().pop() for node in ket._nodes]
+        bra_edges = [node.get_all_dangling().pop() for node in bra._nodes]
+
+        # Store ordered free edges to reorder edges in the final tensor
+        ket_free_edges = []
+        bra_free_edges = []
+        for i in node_indices:
+            ket_free_edges.append(ket_edges[i])
+            bra_free_edges.append(bra_edges[i])
+
+        for i in range(self._nqudits):
+            # If this node is not in node_indices, trace it out
+            if i not in node_indices:
+                _ = tn.connect(ket_edges[i], bra_edges[i])
+
+            # Contract while allowing outer product for unconnected nodes
+            mid = tn.contract_between(
+                ket._nodes[i], bra._nodes[i], allow_outer_product=True
+            )
+
+            if i < self._nqudits - 1:
+                new = tn.contract_between(mid, ket._nodes[i + 1])
+                ket._nodes[i + 1] = new
+
+        mid.reorder_edges(ket_free_edges + bra_free_edges)
+        n = len(node_indices)
+        d = self._qudit_dimension
+        return np.reshape(mid.tensor, newshape=(d**n, d**n))
+
+    def expectation(self, observable: MPSOperation) -> float:
+        """Returns the expectation value of an observable <mps|observable|mps>.
+
+        Args:
+            observable: Hermitian operator expressed as an MPSOperation.
+                Example:
+                    To compute the expectation of H \otimes I on a two-qubit MPS
+
+                    >>> observable = MPSOperation(mpsim.hgate(), 0)
+                    >>> mps.expectation(observable)
+
+        Raises:
+            ValueError: If the observable is not Hermitian.
+        """
+        if not observable.is_hermitian():
+            raise ValueError("Observable is not Hermitian.")
+
+        if observable.qudit_dimension != self._qudit_dimension:
+            obs_dim = observable.qudit_dimension
+            mps_dim = self._qudit_dimension
+            raise ValueError(
+                f"Dimension mismatch between observable and MPS. "
+                f"Observable is ({obs_dim}, {obs_dim}) but MPS has qudit "
+                f"dimension {mps_dim}."
+            )
+
+        mps_copy = self.copy()
+        mps_copy.apply(observable)
+        return self.inner_product(mps_copy).real
 
     def apply_one_qudit_gate(
         self,
@@ -1172,5 +1275,45 @@ class MPS:
             a, b = b, a
         self.apply_two_qudit_gate(swap(), a, b, **kwargs)
 
+    def copy(self) -> 'MPS':
+        """Returns a copy of the MPS."""
+        return self.__copy__()
+
     def __str__(self):
         return "----".join(str(tensor) for tensor in self._nodes)
+
+    def __eq__(self, other: 'MPS'):
+        if not isinstance(other, MPS):
+            return False
+        if self is other:
+            return True
+        if not self.is_valid():
+            raise ValueError(
+                "MPS is invalid and cannot be compared to another MPS."
+            )
+        if not other.is_valid():
+            raise ValueError(
+                "Other MPS is invalid."
+            )
+        if (other._qudit_dimension != self._qudit_dimension or
+                other._nqudits != self._nqudits):
+            return False
+        for i in range(self._nqudits):
+            if not np.allclose(
+                    self.get_node(i).tensor, other.get_node(i).tensor
+            ):
+                return False
+            if i > 0:
+                if (self.get_left_connected_edge_of(i).dimension !=
+                        other.get_left_connected_edge_of(i).dimension):
+                    return False
+            if i < self._nqudits - 1:
+                if (self.get_right_connected_edge_of(i).dimension !=
+                        other.get_right_connected_edge_of(i).dimension):
+                    return False
+        return True
+
+    def __copy__(self):
+        new = MPS(self._nqudits, self._qudit_dimension, self._prefix)
+        new._nodes = self.get_nodes(copy=True)
+        return new

@@ -14,7 +14,7 @@ from mpsim.mpsim_cirq.circuits import (
 class MPSimulator(SimulatesFinalState):
 
     def __init__(self, options: dict = {}):
-        """Initializes and MPS Simulator.
+        """Initializes an MPS Simulator.
 
         Args:
             options: Dictionary of options for the simulator.
