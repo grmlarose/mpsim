@@ -601,7 +601,8 @@ class MPS:
                 Indices not in node_indices are traced out.
 
         Raises:
-            ValueError: If the node_indices are invalid.
+            ValueError: If the node_indices contain duplicate indices.
+            IndexError: If the indices are out of bounds for the MPS.
         """
         try:
             node_indices = iter(node_indices)
@@ -617,7 +618,7 @@ class MPS:
             raise ValueError("Node indices contains duplicates.")
 
         if min(node_indices) < 0 or max(node_indices) > self._nqudits - 1:
-            raise ValueError("One or more invalid node indices.")
+            raise IndexError("One or more invalid node indices.")
 
         # print("======== In MPS.reduced_density_matrix ========")
         # print("My node_indices =", node_indices)

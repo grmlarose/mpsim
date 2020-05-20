@@ -1656,3 +1656,40 @@ def test_density_matrix_three_qubits():
             )
             rdm = mps.reduced_density_matrix(node_indices=tuple(reversed(i)))
             assert np.allclose(rdm, correct)
+
+
+@pytest.mark.parametrize("n", [3, 5, 8])
+def test_qubit_mps_single_site_density_matrices(n: int):
+    """Tests computing single-site partial density matrices on qubit MPS."""
+    np.random.seed(1)
+    wavefunction = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+    wavefunction /= np.linalg.norm(wavefunction)
+    mps = MPS.from_wavefunction(wavefunction, nqudits=n)
+
+    site = [int(np.random.choice(range(n)))]
+    rdm = mps.reduced_density_matrix(node_indices=site)
+    print(np.round(rdm, 3))
+    correct = density_matrix_from_state_vector(
+        state=wavefunction, indices=site
+    )
+    print(np.round(correct, 3))
+    assert np.allclose(rdm, correct)
+
+
+@pytest.mark.parametrize("n", [3, 5, 8])
+def test_qubit_mps_multi_site_density_matrices(n: int):
+    """Tests computing partial density matrices."""
+    np.random.seed(1)
+    for _ in range(50):
+        wavefunction = np.random.randn(2**n) + np.random.randn(2**n) * 1j
+        wavefunction /= np.linalg.norm(wavefunction)
+        mps = MPS.from_wavefunction(wavefunction, nqudits=n)
+
+        size = np.random.randint(low=1, high=n)
+        qubits = list(np.random.choice(range(n), size=size, replace=False))
+        sites = [int(q) for q in qubits]
+        rdm = mps.reduced_density_matrix(node_indices=sites)
+        correct = density_matrix_from_state_vector(
+            state=wavefunction, indices=sites
+        )
+        assert np.allclose(rdm, correct)
