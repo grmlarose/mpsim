@@ -1618,6 +1618,20 @@ def test_reduced_density_matrix_simple():
     assert np.allclose(rdm, correct)
 
 
+def test_reduced_density_matrix_invalid_indices():
+    """Tests the correct errors are raised for invalid indices."""
+    mps = MPS(nqudits=2)
+
+    with pytest.raises(IndexError):
+        mps.reduced_density_matrix(node_indices=-1)
+
+    with pytest.raises(IndexError):
+        mps.reduced_density_matrix(node_indices=22)
+
+    with pytest.raises(ValueError):
+        mps.reduced_density_matrix(node_indices=[0, 0])
+
+
 def test_reduced_density_matrix_two_qubits():
     """Tests computing the reduced density matrix for a two-qubit MPS with
     random wavefunctions.
@@ -1634,6 +1648,7 @@ def test_reduced_density_matrix_two_qubits():
             )
             rdm = mps.reduced_density_matrix(node_indices=i)
             assert np.allclose(rdm, correct)
+            assert np.allclose(mps.wavefunction(), wavefunction)
 
 
 def test_density_matrix_three_qubits():
@@ -1656,6 +1671,7 @@ def test_density_matrix_three_qubits():
             )
             rdm = mps.reduced_density_matrix(node_indices=tuple(reversed(i)))
             assert np.allclose(rdm, correct)
+            assert np.allclose(mps.wavefunction(), wavefunction)
 
 
 @pytest.mark.parametrize("n", [3, 5, 8])
@@ -1668,12 +1684,11 @@ def test_qubit_mps_single_site_density_matrices(n: int):
 
     site = [int(np.random.choice(range(n)))]
     rdm = mps.reduced_density_matrix(node_indices=site)
-    print(np.round(rdm, 3))
     correct = density_matrix_from_state_vector(
         state=wavefunction, indices=site
     )
-    print(np.round(correct, 3))
     assert np.allclose(rdm, correct)
+    assert np.allclose(mps.wavefunction(), wavefunction)
 
 
 @pytest.mark.parametrize("n", [3, 5, 8])
@@ -1693,3 +1708,4 @@ def test_qubit_mps_multi_site_density_matrices(n: int):
             state=wavefunction, indices=sites
         )
         assert np.allclose(rdm, correct)
+        assert np.allclose(mps.wavefunction(), wavefunction)

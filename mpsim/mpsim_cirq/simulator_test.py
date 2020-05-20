@@ -150,7 +150,7 @@ def test_two_qubit_parameterized_circuit_single_parameter():
     theta = sympy.Symbol(name=theta_name)
     qreg = cirq.LineQubit.range(2)
     circ = cirq.Circuit(
-        cirq.Ry(theta).on(qreg[0]),
+        cirq.ry(theta).on(qreg[0]),
         cirq.CNOT.on(*qreg)
     )
 
@@ -159,7 +159,7 @@ def test_two_qubit_parameterized_circuit_single_parameter():
         circ, param_resolver=cirq.ParamResolver({theta_name: theta_value})
     )
     solved_circuit = cirq.Circuit(
-        cirq.Ry(theta_value).on(qreg[0]),
+        cirq.ry(theta_value).on(qreg[0]),
         cirq.CNOT.on(*qreg)
     )
     assert np.allclose(mps.wavefunction(), solved_circuit.final_wavefunction())
@@ -179,7 +179,7 @@ def test_parameterized_single_qubit_gates():
             cirq.ops.HPowGate(exponent=symbols[0]).on(qreg[0]),
             cirq.ops.ZPowGate(exponent=symbols[1]).on(qreg[1]),
             cirq.ops.PhasedXPowGate(phase_exponent=symbols[2]).on(qreg[2]),
-            cirq.ops.Ry(rads=symbols[3]).on(qreg[3]),
+            cirq.ops.ry(rads=symbols[3]).on(qreg[3]),
         )
 
         # Get the final wavefunction using the Cirq Simulator
@@ -187,7 +187,7 @@ def test_parameterized_single_qubit_gates():
             cirq.ops.HPowGate(exponent=values[0]).on(qreg[0]),
             cirq.ops.ZPowGate(exponent=values[1]).on(qreg[1]),
             cirq.ops.PhasedXPowGate(phase_exponent=values[2]).on(qreg[2]),
-            cirq.ops.Ry(rads=values[3]).on(qreg[3]),
+            cirq.ops.ry(rads=values[3]).on(qreg[3]),
         )
         cirq_wavefunction = solved_circuit.final_wavefunction()
 

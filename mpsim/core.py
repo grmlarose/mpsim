@@ -608,11 +608,7 @@ class MPS:
             node_indices = iter(node_indices)
         except TypeError:
             node_indices = [node_indices]
-
         node_indices = tuple(node_indices)
-        print("In RDM, node_indices =")
-        print(type(node_indices))
-        print(node_indices)
 
         if len(set(node_indices)) < len(node_indices):
             raise ValueError("Node indices contains duplicates.")
@@ -620,58 +616,37 @@ class MPS:
         if min(node_indices) < 0 or max(node_indices) > self._nqudits - 1:
             raise IndexError("One or more invalid node indices.")
 
-        # print("======== In MPS.reduced_density_matrix ========")
-        # print("My node_indices =", node_indices)
-
         ket = self.copy()
         bra = self.copy()
         bra.dagger()
-        a = ket._nodes
-        b = bra._nodes
-        aedges = [node.get_all_dangling().pop() for node in ket._nodes]
-        bedges = [node.get_all_dangling().pop() for node in bra._nodes]
+        ket_edges = [node.get_all_dangling().pop() for node in ket._nodes]
+        bra_edges = [node.get_all_dangling().pop() for node in bra._nodes]
 
+        # Store ordered free edges to reorder edges in the final tensor
         ket_free_edges = []
         bra_free_edges = []
         for i in node_indices:
-            ket_free_edges.append(aedges[i])
-            bra_free_edges.append(bedges[i])
+            ket_free_edges.append(ket_edges[i])
+            bra_free_edges.append(bra_edges[i])
 
-        for i in range(self._nqudits - 1):
-            # print("At site", i)
-            # Connect edges if we don't want the density matrix of these qudits
+        for i in range(self._nqudits):
+            # If this node is not in node_indices, trace it out
             if i not in node_indices:
-                # print("Connnecting free edges at site", i)
-                _ = tn.connect(aedges[i], bedges[i])
-            # print("Not connecting free edges at site", i)
-            # Contract
+                _ = tn.connect(ket_edges[i], bra_edges[i])
+
+            # Contract while allowing outer product for unconnected nodes
             mid = tn.contract_between(
-                a[i], b[i], allow_outer_product=True
+                ket._nodes[i], bra._nodes[i], allow_outer_product=True
             )
-            # print(f"Tensor from contracting free edges at site {i}:")
-            # print(mid.tensor)
-            # print(mid.edges)
-            new = tn.contract_between(mid, a[i + 1])
-            # print(f"New top tensor at site {i}:")
-            # print(new.tensor)
-            # print(new.edges)
-            a[i + 1] = new
 
-        if self._nqudits - 1 not in node_indices:
-            # print("Connecting free edges at site", self._nqudits - 1)
-            _ = tn.connect(aedges[-1], bedges[-1])
-        # tn.flatten_edges_between(a[-1], b[-1])
-        fin = tn.contract_between(
-            a[-1], b[-1], allow_outer_product=True
-        )
+            if i < self._nqudits - 1:
+                new = tn.contract_between(mid, ket._nodes[i + 1])
+                ket._nodes[i + 1] = new
 
-        # print("Final tensor:")
-        # print(fin.tensor)
-        # print(fin.edges)
+        mid.reorder_edges(ket_free_edges + bra_free_edges)
         n = len(node_indices)
         d = self._qudit_dimension
-        fin.reorder_edges(ket_free_edges + bra_free_edges)
-        return np.reshape(fin.tensor, newshape=(d**n, d**n))
+        return np.reshape(mid.tensor, newshape=(d**n, d**n))
 
     def expectation(self, observable: MPSOperation) -> float:
         """Returns the expectation value of an observable <mps|observable|mps>.
