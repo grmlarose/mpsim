@@ -19,6 +19,7 @@ from mpsim.gates import (
     plus_state,
     computational_basis_projector
 )
+from cirq.qis import density_matrix_from_state_vector
 
 
 def test_single_qubit_identity_mps_operation():
@@ -1615,3 +1616,21 @@ def test_reduced_density_matrix_simple():
     rdm = mps.reduced_density_matrix(node_indices=1)
     correct = np.array([[0., 0.], [0., 1.]])
     assert np.allclose(rdm, correct)
+
+
+def test_reduced_density_matrix_two_qubits():
+    """Tests computing the reduced density matrix for a two-qubit MPS with
+    random wavefunctions.
+    """
+    np.random.seed(7)
+    for _ in range(50):
+        wavefunction = np.random.randn(4) + np.random.randn(4) * 1j
+        wavefunction /= np.linalg.norm(wavefunction)
+        mps = MPS.from_wavefunction(wavefunction, nqudits=2)
+
+        for i in (0, 1):
+            correct = density_matrix_from_state_vector(
+                state=wavefunction, indices=[i]
+            )
+            rdm = mps.reduced_density_matrix(node_indices=i)
+            assert np.allclose(rdm, correct)
