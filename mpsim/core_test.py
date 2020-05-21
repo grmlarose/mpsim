@@ -1709,3 +1709,29 @@ def test_qubit_mps_multi_site_density_matrices(n: int):
         )
         assert np.allclose(rdm, correct)
         assert np.allclose(mps.wavefunction(), wavefunction)
+
+
+def test_sample_zero_state():
+    """Sampling from the |00> MPS."""
+    for d in (2, 3, 5):
+        mps = MPS(nqudits=2, qudit_dimension=d)
+        samples = mps.sample(nsamples=100)
+        assert len(samples) == 100
+        for sample in samples:
+            assert set(sample) == {0}
+
+
+def test_sample_uniform():
+    """Sampling from the |++...+> MPS."""
+    np.random.seed(1)
+    n = 3
+    prob = 1. / 2**n
+    nsamples = 100
+    var = 1. / np.sqrt(nsamples)
+
+    mps = MPS(nqudits=n)
+    mps.apply([MPSOperation(hgate(), i) for i in range(n)])
+    hist = mps.sample(nsamples=nsamples, as_hist=True, as_string=True)
+    freqs = np.array(list(hist.values())) / nsamples
+    for freq in freqs:
+        assert np.abs(freq - prob) < var

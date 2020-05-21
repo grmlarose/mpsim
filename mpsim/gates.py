@@ -76,6 +76,30 @@ one_state = np.array([0.0, 1.0], dtype=np.complex64)
 plus_state = 1.0 / np.sqrt(2) * (zero_state + one_state)
 
 
+def computational_basis_state(state: int, dim: int = 2) -> tn.Node:
+    """Returns a computational basis state.
+
+    Args:
+        state: Integer which labels the state from the set {0, 1, ..., d - 1}.
+        dim: Dimension of the qudit. Default is two for qubits.
+
+    Raises:
+        ValueError: If state < 0, dim < 0, or state >= dim.
+    """
+    if state < 0:
+        raise ValueError(f"Argument state should be positive but is {state}.")
+
+    if dim < 0:
+        raise ValueError(f"Argument dim should be positive but is {dim}.")
+
+    if state >= dim:
+        raise ValueError(
+            f"Requires state < dim but state = {state} and dim = {dim}."
+        )
+    vector = np.zeros((dim,))
+    vector[state] = 1.
+    return tn.Node(vector, name=f"|{state}>")
+
 # Common single qubit gates as np.ndarray objects
 _hmatrix = (
     1 / np.sqrt(2) * np.array([[1.0, 1.0], [1.0, -1.0]], dtype=np.complex64)
@@ -140,6 +164,7 @@ def rgate(seed: Optional[int] = None, angle_scale: float = 1.0):
     return tn.Node(unitary)
 
 
+# TODO: Simplify implementation using computational_basis_state
 def computational_basis_projector(state: int, dim: int = 2) -> tn.Node:
     """Returns a projector onto a computational basis state which acts on a
     single qudit of dimension dim.
