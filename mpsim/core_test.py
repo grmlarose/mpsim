@@ -1711,36 +1711,27 @@ def test_qubit_mps_multi_site_density_matrices(n: int):
         assert np.allclose(mps.wavefunction(), wavefunction)
 
 
-def test_sample_simple():
+def test_sample_zero_state():
     """Sampling from the |00> MPS."""
-    mps = MPS(nqudits=2)
-    string = mps.sample(nsamples=10)
-    print(string)
-    assert False
+    for d in (2, 3, 5):
+        mps = MPS(nqudits=2, qudit_dimension=d)
+        samples = mps.sample(nsamples=100)
+        assert len(samples) == 100
+        for sample in samples:
+            assert set(sample) == {0}
 
 
 def test_sample_uniform():
     """Sampling from the |++...+> MPS."""
-    n = 3
-    mps = MPS(nqudits=n)
-    mps.apply(
-        [MPSOperation(hgate(), i) for i in range(n)]
-    )
-    samples = mps.sample(nsamples=10)
-    print(samples)
-    assert False
-
-
-def test_sample_from_wavefunction():
-    """Tests sampling from an MPS with a known wavefunction."""
     np.random.seed(1)
     n = 3
-    wavefunction = np.random.randn(2**n) + np.random.randn(2**n) * 1j
-    wavefunction /= np.linalg.norm(wavefunction)
-    mps = MPS.from_wavefunction(wavefunction, nqudits=n)
-    print("Distribution")
-    print(np.round([abs(alpha)**2 for alpha in wavefunction], 2))
+    prob = 1. / 2**n
+    nsamples = 100
+    var = 1. / np.sqrt(nsamples)
 
-    samples = mps.sample(nsamples=10)
-    print(samples)
-    assert False
+    mps = MPS(nqudits=n)
+    mps.apply([MPSOperation(hgate(), i) for i in range(n)])
+    hist = mps.sample(nsamples=nsamples, as_hist=True, as_string=True)
+    freqs = np.array(list(hist.values())) / nsamples
+    for freq in freqs:
+        assert np.abs(freq - prob) < var

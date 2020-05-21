@@ -1,7 +1,7 @@
 """Defines matrix product state class."""
 
 from copy import deepcopy
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import tensornetwork as tn
@@ -10,6 +10,8 @@ from mpsim.gates import (
     hgate, rgate, xgate, cnot, swap, is_unitary, is_hermitian,
     computational_basis_state
 )
+
+BITSTRING = Union[Sequence[int], str]
 
 
 class CannotConvertToMPSOperation(Exception):
@@ -649,9 +651,13 @@ class MPS:
         d = self._qudit_dimension
         return np.reshape(mid.tensor, newshape=(d**n, d**n))
 
-    def _sample(self) -> Sequence[int]:
+    def _sample(self, as_string: bool = False) -> BITSTRING:
         """Returns a string of measured states at each site
         by sampling once from the MPS.
+
+        Args:
+            as_string: If True, each measurement result is a string instead of
+                    a list of integers.
         """
         string = []
         states = list(range(self._qudit_dimension))
@@ -662,8 +668,6 @@ class MPS:
             state = computational_basis_state(
                 string[-1], dim=self._qudit_dimension
             )
-            # print("Qubit:", qubit)
-            # print("Measured:", string[-1])
             edge = tn.connect(
                 copy._nodes[i].get_all_dangling().pop(),
                 state.get_all_dangling().pop()
@@ -672,33 +676,49 @@ class MPS:
             if i < self._nqudits - 1:
                 new = tn.contract_between(mid, copy._nodes[i + 1])
                 copy._nodes[i + 1] = new
-        # print("Final node:")
-        # print(mid.tensor)
-        assert len(mid.edges) == 0
-        prob = abs(mid.tensor)**2
-        print("String:", string)
-        print("Prob:", np.round(prob, 2))
+
+        if as_string:
+            return "".join(str(bit) for bit in string)
         return string
 
-    def sample(self, nsamples: int) -> List[Sequence[int]]:
+    def sample(
+            self, nsamples: int, as_hist: bool = False, as_string: bool = False
+    ) -> Union[Dict[BITSTRING, int], BITSTRING]:
         """Samples from the MPS, returning a list of (bit)strings of measured
         states on each site.
 
         Args:
             nsamples: Number of times to sample from the MPS.
+            as_hist: If True, a histogram of measurement results is returned.
+                If True, as_string is set to True.
+            as_string: If True, each measurement result is a string instead of
+                a list of integers.
 
         Raises: ValueError: If nsamples is negative or non-integer.
         """
+        # TODO: If self._nqudits is small enough, this can be significantly sped
+        #  up by computing the wavefunction.
         if not isinstance(nsamples, int):
             raise ValueError(
                 f"Arg nsamples should be an int but is a {type(nsamples)}."
             )
-
         if nsamples <= 0:
             raise ValueError(
                 f"Arg nsamples should be positive but is {nsamples}."
             )
-        return [self._sample() for _ in range(nsamples)]
+        if as_hist:
+            as_string = True
+
+        raw = [self._sample(as_string) for _ in range(nsamples)]
+        if as_hist:
+            hist = {}
+            for bitstring in raw:
+                if bitstring not in hist.keys():
+                    hist[bitstring] = 1
+                else:
+                    hist[bitstring] += 1
+            return hist
+        return raw
 
     def expectation(self, observable: MPSOperation) -> float:
         """Returns the expectation value of an observable <mps|observable|mps>.
