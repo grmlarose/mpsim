@@ -273,8 +273,6 @@ def haar_random_unitary(
     shape = (qudit_dimension ** nqudits, qudit_dimension ** nqudits)
     mat = np.sum(rng.randn(*(shape + (2,))) * units, axis=-1) / np.sqrt(2)
 
-    print("Dim mat:", mat.shape)
-
     # Do the QR decomposition
     qmat, rmat = np.linalg.qr(mat)
 
