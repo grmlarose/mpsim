@@ -8,7 +8,7 @@ import tensornetwork as tn
 
 from mpsim.gates import (
     hgate, rgate, xgate, cnot, swap, is_unitary, is_hermitian,
-    computational_basis_state
+    computational_basis_state, haar_random_unitary
 )
 
 BITSTRING = Union[Sequence[int], str]
@@ -1326,6 +1326,38 @@ class MPS:
         and qubit indexed `b` as target.
         """
         self.apply_two_qudit_gate(cnot(), a, b, **kwargs)
+
+    def haar_random(
+            self, qudit1_index: int, qudit2_index: int, **kwargs
+    ) -> None:
+        """Applies a two-qudit Haar random unitary with qubit indexed `a` as
+        "control" and qubit index `b` as "target".
+        
+        Args:
+            qudit1_index: Index of the first qudit.
+            qudit2_index: Index of the second qudit.
+
+        Notes:
+            See help(MPS.apply_two_qudit_gate) for keyword arguments.
+        """
+        gate = haar_random_unitary(
+            nqudits=2, qudit_dimension=self._qudit_dimension
+        )
+        self.apply_two_qudit_gate(gate, qudit1_index, qudit2_index, **kwargs)
+
+    def sweep_haar_random_left_to_right(self, **kwargs) -> None:
+        """Applies a layer of two-qudit Haar random unitaries from left to right
+        in the MPS.
+        """
+        for i in range(0, self._nqudits - 1, 2):
+            self.haar_random(i, i + 1, keep_left_canonical=True, **kwargs)
+
+    def sweep_haar_random_right_to_left(self, **kwargs) -> None:
+        """Applies a layer of two-qudit Haar random unitaries from right to left
+        in the MPS.
+        """
+        for i in range(self._nqudits - 2, 0, -2):
+            self.haar_random(i - 1, i, keep_left_canonical=False, **kwargs)
 
     def sweep_cnots_left_to_right(self, **kwargs) -> None:
         """Applies a layer of CNOTs between adjacent qubits
