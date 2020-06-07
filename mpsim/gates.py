@@ -243,3 +243,46 @@ def random_two_qubit_gate(seed: Optional[int] = None) -> tn.Node:
     unitary = unitary_group.rvs(dim=4)
     unitary = np.reshape(unitary, newshape=(2, 2, 2, 2))
     return tn.Node(deepcopy(unitary), name="R2Q")
+
+
+def haar_random_unitary(
+    nqudits: int = 2,
+    qudit_dimension: int = 2,
+    name: str = "Haar",
+    seed: Optional[int] = None
+) -> tn.Node:
+    """Returns a Haar random unitary matrix of dimension 2**nqubits using
+    the algorithm in https://arxiv.org/abs/math-ph/0609050.
+
+    Args:
+        nqudits: Number of qudits the unitary acts on.
+        qudit_dimension: Dimension of each qudit.
+        name: Name for the gate.
+        seed: Seed for random number generator.
+
+    Notes:
+        See also
+            http://qutip.org/docs/4.3/apidoc/functions.html#qutip.random_objects
+        which was used as a template for this function.
+    """
+    # Seed for random number generator
+    rng = np.random.RandomState(seed)
+
+    # Generate an N x N matrix of complex standard normal random variables
+    units = np.array([1, 1j])
+    shape = (qudit_dimension ** nqudits, qudit_dimension ** nqudits)
+    mat = np.sum(rng.randn(*(shape + (2,))) * units, axis=-1) / np.sqrt(2)
+
+    print("Dim mat:", mat.shape)
+
+    # Do the QR decomposition
+    qmat, rmat = np.linalg.qr(mat)
+
+    # Create a diagonal matrix by rescaling the diagonal elements of rmat
+    diag = np.diag(rmat).copy()
+    diag /= np.abs(diag)
+
+    # Reshape the tensor
+    tensor = qmat * diag
+    tensor = np.reshape(tensor, newshape=[qudit_dimension] * 2 * nqudits)
+    return tn.Node(tensor, name=name)

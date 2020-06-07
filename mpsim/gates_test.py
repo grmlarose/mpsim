@@ -13,7 +13,8 @@ from mpsim.gates import (
     ygate,
     zgate,
     cnot,
-    cphase
+    cphase,
+    haar_random_unitary
 )
 
 
@@ -72,3 +73,11 @@ def test_qutrit_projectors():
         assert is_projector(projector)
         assert not is_unitary(projector)
         assert projector.__str__() == f"|{state}><{state}|"
+
+
+def test_haar_random_unitary():
+    """Tests single-qubit and two-qubit Haar random unitaries."""
+    for n in [2, 3, 4]:
+        for d in [2, 3, 5]:
+            gate = haar_random_unitary(nqudits=n, qudit_dimension=d, seed=1)
+            assert is_unitary(gate)
